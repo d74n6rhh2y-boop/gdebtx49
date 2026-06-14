@@ -1,0 +1,34 @@
+name: Fetch game images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch og:images into games.json
+        run: python fetch_images.py
+
+      - name: Commit updated games.json
+        run: |
+          git config user.name "hexplay-bot"
+          git config user.email "bot@hexplay.games"
+          if git diff --quiet games.json; then
+            echo "No changes."
+          else
+            git add games.json
+            git commit -m "Add game preview images (og:image)"
+            git push
+          fi
