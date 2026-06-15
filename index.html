@@ -453,6 +453,12 @@ setTimeout(logoTick, 8000 + Math.random() * 5000);
 }
 idle(() => setTimeout(logoTick, 1400));
 document.addEventListener('touchstart', () => {}, { passive: true });
+document.addEventListener('click', e => {
+  if (e.target.closest('.row-tags') && !e.target.closest('.tag')) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}, true);
 ['contextmenu','copy','cut','dragstart','selectstart'].forEach(ev =>
 document.addEventListener(ev, e => e.preventDefault()));</script>
 </body>
