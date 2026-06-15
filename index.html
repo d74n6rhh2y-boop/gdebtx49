@@ -97,7 +97,7 @@ const yrMin = g => Math.min(...g.p.map(x => x[1]));
 function sortGames(arr) {
 return arr.slice().sort((a, b) => yrMax(b) - yrMax(a) || yrMin(b) - yrMin(a) || a.title.localeCompare(b.title));
 }
-const PER_PAGE = 20;
+const PER_PAGE = 30;
 let _mem = new Set();
 function loadFavs() {
 try { return new Set(JSON.parse(localStorage.getItem('hexplay-favs') || '[]')); }
