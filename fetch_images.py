@@ -32,7 +32,7 @@ from html.parser import HTMLParser
 HERE = os.path.dirname(os.path.abspath(__file__))
 GAMES = os.path.join(HERE, "games.json")
 
-UA = "Mozilla/5.0 (compatible; hexplay-bot/1.7; +https://hexplay.games)"
+UA = "Mozilla/5.0 (compatible; hexplay-bot/1.8; +https://hexplay.games)"
 TIMEOUT = 15
 
 # --- config ---
@@ -275,6 +275,20 @@ def _title_matches(want, cand):
     return bool(a and b) and len(a & b) / len(a | b) >= 0.5
 
 
+_SUBTITLE_SEP = re.compile(r":\s+|\s+[-–—]\s+")
+
+
+def _base_title(t):
+    """Title with the trailing subtitle dropped (after the last separator)."""
+    if not t:
+        return None
+    seps = list(_SUBTITLE_SEP.finditer(t))
+    if not seps:
+        return None
+    base = t[:seps[-1].start()].strip()
+    return base if len(base) >= 3 else None
+
+
 # ---------- Steam (capsule header, landscape) ----------
 
 def steam_image(title):
@@ -327,15 +341,19 @@ def play_image(title):
 
 
 def store_image(title):
-    """Landscape art only: Google Play banner -> Steam capsule."""
-    sources = []
-    if USE_GOOGLE_PLAY:
-        sources.append((play_image, "play"))
+    """Landscape art: Google Play banner -> Steam capsule.
+    Tries the full title first, then the base title (subtitle stripped)."""
+    terms = [title]
+    base = _base_title(title)
+    if base and _norm(base) != _norm(title):
+        terms.append(base)
+    sources = [(play_image, "play")] if USE_GOOGLE_PLAY else []
     sources.append((steam_image, "steam"))
-    for idx, (fn, tag) in enumerate(sources):
+    attempts = [(fn, tag, term) for term in terms for fn, tag in sources]
+    for idx, (fn, tag, term) in enumerate(attempts):
         if idx:
             time.sleep(STORE_SLEEP)      # space calls; none wasted on a miss
-        img = fn(title)
+        img = fn(term)
         if img:
             print(f"   -> [{tag}] {img[:80]}")
             return img
