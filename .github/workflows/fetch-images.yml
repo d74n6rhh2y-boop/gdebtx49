@@ -18,7 +18,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Fetch og:images into games.json
+      - name: Install dependencies
+        run: pip install google-play-scraper
+
+      - name: Fetch images into games.json
         run: python fetch_images.py
 
       - name: Commit updated games.json
@@ -29,6 +32,6 @@ jobs:
             echo "No changes."
           else
             git add games.json
-            git commit -m "Add game preview images (og:image)"
+            git commit -m "Add game preview images"
             git push
           fi
