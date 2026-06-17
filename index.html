@@ -127,7 +127,7 @@ for (const [k, y] of p) {
 if (!(k in byPlat)) { byPlat[k] = []; order.push(k); }
 if (!byPlat[k].includes(y)) byPlat[k].push(y);
 }
-const yr = k => byPlat[k].slice().sort((a,b)=>a-b).join(' / ');
+const yr = k => byPlat[k].slice().sort((a,b)=>a-b).join('/');
 const same = order.every(k => yr(k) === yr(order[0]));
 let plats;
 if (same) {
