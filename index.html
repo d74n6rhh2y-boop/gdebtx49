@@ -95,7 +95,7 @@
 const yrMax = g => Math.max(...g.p.map(x => x[1]));
 const yrMin = g => Math.min(...g.p.map(x => x[1]));
 function sortGames(arr) {
-return arr.slice().sort((a, b) => yrMin(b) - yrMin(a) || yrMax(b) - yrMax(a) || a.title.localeCompare(b.title));
+return arr.slice().sort((a, b) => yrMax(b) - yrMax(a) || yrMin(b) - yrMin(a) || a.title.localeCompare(b.title));
 }
 const PER_PAGE = 30;
 let _mem = new Set();
@@ -127,13 +127,14 @@ for (const [k, y] of p) {
 if (!(k in byPlat)) { byPlat[k] = []; order.push(k); }
 if (!byPlat[k].includes(y)) byPlat[k].push(y);
 }
-const allYears = [...new Set(p.map(x => x[1]))];
+const yr = k => byPlat[k].slice().sort((a,b)=>a-b).join(' / ');
+const same = order.every(k => yr(k) === yr(order[0]));
 let plats;
-if (allYears.length === 1 && order.every(k => byPlat[k].length === 1)) {
-plats = `<span class="plat">${order.map(k => ICONS[k]||'').join('')}<span>${allYears[0]}</span></span>`;
+if (same) {
+plats = `<span class="plat">${order.map(k => ICONS[k]||'').join('')}<span>${yr(order[0])}</span></span>`;
 } else {
 plats = order.map(k =>
-`<span class="plat">${ICONS[k]||''}<span>${byPlat[k].slice().sort((a,b)=>a-b).join(' / ')}</span></span>`).join('');
+`<span class="plat">${ICONS[k]||''}<span>${yr(k)}</span></span>`).join('');
 }
 return plats +
 (g.pick ? `<span class="tag pick${scope==='hexplay'?' on':''}" data-t="hexplay">hexplay</span>` : '') +
