@@ -26,14 +26,17 @@ jobs:
       - name: Fetch images into games.json
         run: python fetch_images.py
 
-      - name: Commit updated games.json
+      - name: Sync SEO list into index.html
+        run: python update_seo.py
+
+      - name: Commit updated files
         run: |
           git config user.name "hexplay-bot"
           git config user.email "bot@hexplay.games"
-          if git diff --quiet games.json; then
+          git add games.json index.html
+          if git diff --cached --quiet; then
             echo "No changes."
           else
-            git add games.json
-            git commit -m "Add game preview images"
+            git commit -m "Update game images and SEO list"
             git push
           fi
