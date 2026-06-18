@@ -111,6 +111,7 @@ let favs = loadFavs();
 document.getElementById('upd-d').textContent = new Date().toISOString().slice(0, 10);
 const _sp = new URLSearchParams(location.search).get('favs');
 let page = 0;
+const _startPage = (parseInt(new URLSearchParams(location.search).get('page'), 10) || 1) - 1;
 let filtered = [];
 const ICONS = {
 i: '<svg class="store-ic" viewBox="0 0 24 24"><path d="M16.365 1.43c0 1.14-.43 2.2-1.27 3.18-.85.98-1.88 1.54-3.08 1.46-.05-1.1.4-2.18 1.25-3.16.85-.98 1.9-1.52 3.1-1.48zm4.34 16.07c-.6 1.39-1.32 2.74-2.4 4.05-.87 1.06-1.94 2.13-3.3 2.13-1.3 0-1.7-.84-3.3-.84-1.6 0-2.05.82-3.3.86-1.36.05-2.4-1.14-3.28-2.2-1.84-2.36-3.25-6.66-1.36-9.57.93-1.44 2.5-2.34 4.2-2.37 1.3-.02 2.5.88 3.3.88.8 0 2.3-1.09 3.9-.93.66.03 2.5.27 3.7 2.03-.1.06-2.2 1.29-2.18 3.85.03 3.06 2.68 4.08 2.72 4.11z"/></svg>',
@@ -195,6 +196,9 @@ String(page + 1).padStart(2, '0') + ' / ' + String(pages).padStart(2, '0');
 document.getElementById('prev').disabled = page === 0;
 document.getElementById('next').disabled = page >= pages - 1;
 hydrateBGs();
+const _u = new URLSearchParams(location.search);
+_u.set('page', page + 1);
+history.replaceState(null, '', '?' + _u.toString());
 }
 let genreTag = '';
 let scope = 'all';
@@ -466,6 +470,13 @@ document.addEventListener('click', e => {
   }
 }, true);
 ['contextmenu','copy','cut','dragstart','selectstart'].forEach(ev =>
-document.addEventListener(ev, e => e.preventDefault()));</script>
+document.addEventListener(ev, e => e.preventDefault()));
+(function () {
+if (!filtered.length) recompute();
+const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+page = Math.min(Math.max(0, _startPage), pages - 1);
+render();
+})();
+</script>
 </body>
 </html>
