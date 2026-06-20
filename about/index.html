@@ -88,7 +88,7 @@
 <button class="ping-btn thanks" id="thanksBtn" type="button">SAY THANKS</button>
 </div>
 <div class="donate" id="donate" hidden>
-<div class="donate-net">USDT <span class="donate-sep">·</span> TRC-20 <span class="donate-warn">(Tron only)</span></div>
+<div class="donate-net">USDT <span class="donate-sep">•</span> TRC-20 <span class="donate-warn">(Tron only)</span></div>
 <button class="donate-addr" id="donateAddr" type="button" title="Tap to copy">TWzZM9Y9eYBnMf9LHxBv9bqEPNU8FJpkXj</button>
 <div class="donate-hint" id="donateHint">Tap address to copy</div>
 </div>
@@ -152,8 +152,8 @@ if (addr) addr.addEventListener('click', async () => {
 try {
 if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(ADDR); }
 else { const t=document.createElement('textarea'); t.value=ADDR; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.focus(); t.select(); document.execCommand('copy'); document.body.removeChild(t); }
-addr.classList.add('copied'); hint.textContent='Copied \u2713'; hint.classList.add('ok');
-setTimeout(()=>{ addr.classList.remove('copied'); hint.textContent='Tap address to copy'; hint.classList.remove('ok'); },2500);
+addr.classList.add('copied'); hint.textContent='Copied \u2713   any amount means a lot'; hint.classList.add('ok');
+setTimeout(()=>{ addr.classList.remove('copied'); hint.textContent='Tap address to copy'; hint.classList.remove('ok'); },4500);
 } catch(e){ hint.textContent='Copy failed - long-press to copy'; }
 });
 const up=document.getElementById('jUp'), dn=document.getElementById('jDn');
