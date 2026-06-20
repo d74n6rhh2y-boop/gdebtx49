@@ -91,10 +91,10 @@
 <button class="ping-btn thanks" id="thanksBtn" type="button">DONATE</button>
 </div>
 <div class="donate" id="donate" hidden>
-<div class="donate-net">USDT <span class="donate-sep">•</span> TRC-20 <span class="donate-warn">(Tron only)</span></div>
+<div class="donate-net">USDT•TRC-20 <span class="donate-warn">(Tron only)</span></div>
 <button class="donate-addr" type="button" title="Tap to copy" data-addr="TWzZM9Y9eYBnMf9LHxBv9bqEPNU8FJpkXj">TWzZM9Y9eYBnMf9LHxBv9bqEPNU8FJpkXj</button>
 <div class="donate-hint">Tap address to copy</div>
-<div class="donate-net" style="margin-top:16px">BTC <span class="donate-sep">•</span> Bitcoin <span class="donate-warn">(BTC network only)</span></div>
+<div class="donate-net" style="margin-top:16px"> Bitcoin (BTC)</span></div>
 <button class="donate-addr" type="button" title="Tap to copy" data-addr="bc1qjrrn93gy82dsa84rrgyh7umxehctf6wr2tgl5p">bc1qjrrn93gy82dsa84rrgyh7umxehctf6wr2tgl5p</button>
 <div class="donate-hint">Tap address to copy</div>
 </div>
@@ -162,7 +162,7 @@ else { const t=document.createElement('textarea'); t.value=val; t.style.position
 document.querySelectorAll('.donate-addr').forEach(a => a.classList.remove('copied'));
 document.querySelectorAll('.donate-hint').forEach(h => { h.textContent='Tap address to copy'; h.classList.remove('ok'); });
 addr.classList.add('copied');
-if (hint) { hint.textContent='Copied \u2713   any amount means a lot'; hint.classList.add('ok'); }
+if (hint) { hint.textContent='Copied \u2713 Any amount means a lot'; hint.classList.add('ok'); }
 clearTimeout(resetT);
 resetT = setTimeout(()=>{ addr.classList.remove('copied'); if (hint) { hint.textContent='Tap address to copy'; hint.classList.remove('ok'); } },4500);
 } catch(e){ if (hint) hint.textContent='Copy failed - long-press to copy'; }
