@@ -419,7 +419,7 @@ fetch('games.json?v=' + Date.now())
 .then(data => { games = sortGames(data); boot(); })
 .catch(() => {
 const grid = document.getElementById('grid');
-if (grid) grid.innerHTML = '<div class="empty">// catalog unavailable - try reloading</div>';
+if (grid) grid.innerHTML = '<div class="empty">// updating — try reload in 2 minutes</div>';
 });
 const logoEl = document.querySelector('.logo');
 function wordify(sel) {
