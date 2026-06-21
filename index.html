@@ -192,8 +192,7 @@ colA.innerHTML = slice.map(cardHTML).join('')
 ? `<div class="sharebar"><button id="shareFavs" type="button">share my list (${favs.size}) \u2197</button></div>` : '');
 }
 const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-document.getElementById('pageno').textContent =
-String(page + 1).padStart(2, '0') + ' / ' + String(pages).padStart(2, '0');
+document.getElementById('pagenums').innerHTML = pageBtns(pages);
 document.getElementById('prev').disabled = page === 0;
 document.getElementById('next').disabled = page >= pages - 1;
 hydrateBGs();
