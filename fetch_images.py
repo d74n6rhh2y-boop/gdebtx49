@@ -1,25 +1,15 @@
 #!/usr/bin/env python3
 """
-Fill / refresh games.json `img` fields with each game's best preview art.
+Fill games.json `img` with each game's best HORIZONTAL preview art.
 
-HORIZONTAL-ONLY MODE (no API keys needed):
-  - Re-checks EVERY game (not only empty ones).
-  - Rejects junk: favicons, .ico, apple-touch-icon, logo192, data:-URIs,
-    svg, tiny/placeholder icons, parastorage/flaticon stubs.
-  - Site art first: og:image -> twitter:image -> image_src, BUT only if the
-    image is clearly landscape (width >= 1.2 x height). Square / vertical
-    site images are skipped. Shape is read from og:image:width/height meta,
-    or measured straight from the image bytes (PNG/JPEG/WebP/GIF/BMP).
-  - Landscape fallbacks, looked up by game title:
-      1) Google Play feature graphic  1024x500 landscape   [optional]
-      2) Steam capsule (header.jpg)   460x215  landscape
-    No square icons, no vertical screenshots, no portrait box art.
-  - Keeps an existing img ONLY if it already looks like real art.
+PRIORITY (strict):
+  1) local file in img/ matched to the game title  (your picture wins)
+  2) official website preview (og:image / twitter:image / image_src), landscape
+  3) Google Play feature graphic (landscape)        [needs google-play-scraper]
+  4) nothing -> card shows "// image soon_"
 
+No Steam, no other stores. Local paths are never overwritten.
 Run via GitHub Actions; rewrites games.json in place.
-
-Google Play needs:  pip install google-play-scraper
-(if missing, Play is skipped automatically; Steam still works).
 """
 import json
 import os
@@ -31,20 +21,18 @@ from html.parser import HTMLParser
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GAMES = os.path.join(HERE, "games.json")
+IMG_DIR = os.path.join(HERE, "img")
+IMG_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif")
 
-UA = "Mozilla/5.0 (compatible; hexplay-bot/1.8; +https://hexplay.games)"
+UA = "Mozilla/5.0 (compatible; hexplay-bot/2.0; +https://hexplay.games)"
 TIMEOUT = 15
 
-# --- config ---
-USE_GOOGLE_PLAY = True        # needs: pip install google-play-scraper
-STORE_SLEEP = 1.2             # polite delay between lookups (seconds)
+USE_GOOGLE_PLAY = True
+STORE_SLEEP = 1.2
 STORE_COUNTRY = "us"
 STORE_LANG = "en"
-SITE_MIN_RATIO = 1.2          # site image must be at least this wide vs tall
-MEASURE_BYTES = 131072        # how many bytes to pull to read image size
-
-STEAM_SEARCH = "https://store.steampowered.com/api/storesearch/"
-STEAM_CDN = "https://cdn.akamai.steamstatic.com/steam/apps/{}/header.jpg"
+SITE_MIN_RATIO = 1.2
+MEASURE_BYTES = 131072
 
 BAD_SUBSTR = (
     "favicon", "apple-touch", "apple_touch", "/ico/", "icon-",
@@ -69,10 +57,8 @@ def is_bad_img(u):
         if sub in s:
             return True
     m = re.search(r"(\d{2,4})x(\d{2,4})", s)
-    if m:
-        w, h = int(m.group(1)), int(m.group(2))
-        if max(w, h) < 200:
-            return True
+    if m and max(int(m.group(1)), int(m.group(2))) < 200:
+        return True
     if re.search(r"/(16|32|48|57|64|72|96|120|128|180|192)(\b|/|$)", path):
         return True
     return False
@@ -82,6 +68,11 @@ def looks_like_art(u):
     return bool(u) and not is_bad_img(u)
 
 
+def is_local_img(u):
+    """True if img points to a file in the repo (not an http URL / data URI)."""
+    return bool(u) and not u.lower().startswith(("http://", "https://", "data:"))
+
+
 # ---------- read image dimensions from raw bytes (stdlib only) ----------
 
 _JPEG_SOF = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
@@ -89,7 +80,6 @@ _JPEG_SOF = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
 
 
 def img_dims(data):
-    """Return (w, h) for PNG/JPEG/WebP/GIF/BMP from a header chunk, else None."""
     try:
         if data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR":
             return (int.from_bytes(data[16:20], "big"),
@@ -107,13 +97,12 @@ def img_dims(data):
                         (data[28] | data[29] << 8) & 0x3FFF)
             if fmt == b"VP8L":
                 b = data[21:25]
-                w = ((b[1] & 0x3F) << 8 | b[0]) + 1
-                h = ((b[3] & 0x0F) << 10 | b[2] << 2 | (b[1] & 0xC0) >> 6) + 1
-                return (w, h)
+                return (((b[1] & 0x3F) << 8 | b[0]) + 1,
+                        ((b[3] & 0x0F) << 10 | b[2] << 2 | (b[1] & 0xC0) >> 6) + 1)
             if fmt == b"VP8X":
                 return ((data[24] | data[25] << 8 | data[26] << 16) + 1,
                         (data[27] | data[28] << 8 | data[29] << 16) + 1)
-        if data[:2] == b"\xff\xd8":            # JPEG
+        if data[:2] == b"\xff\xd8":
             i, n = 2, len(data)
             while i + 9 < n:
                 if data[i] != 0xFF:
@@ -142,15 +131,12 @@ def measure_url(url):
     try:
         req = urllib.request.Request(url, headers={"User-Agent": UA})
         with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-            data = r.read(MEASURE_BYTES)
+            return img_dims(r.read(MEASURE_BYTES))
     except Exception:
         return None
-    return img_dims(data)
 
 
 def is_landscape(url, w=None, h=None):
-    """True if clearly wider than tall. Uses meta dims if given, else measures.
-    Lenient (True) only when the size genuinely can't be determined."""
     try:
         w = int(w) if w else 0
         h = int(h) if h else 0
@@ -159,7 +145,7 @@ def is_landscape(url, w=None, h=None):
     if not (w and h):
         dims = measure_url(url)
         if not dims:
-            return True          # couldn't measure -> don't over-reject
+            return True
         w, h = dims
     if not (w and h):
         return True
@@ -169,11 +155,7 @@ def is_landscape(url, w=None, h=None):
 class MetaParser(HTMLParser):
     def __init__(self):
         super().__init__()
-        self.og = None
-        self.tw = None
-        self.img_src = None
-        self.og_w = None
-        self.og_h = None
+        self.og = self.tw = self.img_src = self.og_w = self.og_h = None
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
@@ -193,23 +175,18 @@ class MetaParser(HTMLParser):
         elif tag == "link":
             rel = (a.get("rel") or "").lower()
             href = a.get("href")
-            if not href:
-                return
-            if "image_src" in rel and not self.img_src:
+            if href and "image_src" in rel and not self.img_src:
                 self.img_src = href
 
 
 def absolutize(base, url):
-    if not url:
-        return None
-    return urllib.parse.urljoin(base, url)
+    return urllib.parse.urljoin(base, url) if url else None
 
 
 def fetch_html(url):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-        ctype = r.headers.get("Content-Type", "")
-        if "html" not in ctype.lower():
+        if "html" not in r.headers.get("Content-Type", "").lower():
             return None
         raw = r.read(600_000)
     for enc in ("utf-8", "latin-1"):
@@ -221,10 +198,11 @@ def fetch_html(url):
 
 
 def best_image(url):
+    """Official website preview, landscape only."""
     try:
         html = fetch_html(url)
     except Exception as e:
-        print(f"   fetch fail: {e}")
+        print(f"   site fail: {e}")
         return None
     if not html:
         return None
@@ -233,7 +211,6 @@ def best_image(url):
         p.feed(html)
     except Exception:
         pass
-    # (url, meta_w, meta_h) — only og carries reliable meta dims
     cands = []
     if p.og:
         cands.append((absolutize(url, p.og), p.og_w, p.og_h))
@@ -279,7 +256,6 @@ _SUBTITLE_SEP = re.compile(r":\s+|\s+[-–—]\s+")
 
 
 def _base_title(t):
-    """Title with the trailing subtitle dropped (after the last separator)."""
     if not t:
         return None
     seps = list(_SUBTITLE_SEP.finditer(t))
@@ -289,34 +265,42 @@ def _base_title(t):
     return base if len(base) >= 3 else None
 
 
-# ---------- Steam (capsule header, landscape) ----------
+# ---------- local files in img/ ----------
 
-def steam_image(title):
-    """Steam store capsule (header.jpg) via the storefront search API."""
-    if not title:
-        return None
-    q = urllib.parse.urlencode({"term": title, "cc": STORE_COUNTRY,
-                                "l": STORE_LANG})
-    try:
-        req = urllib.request.Request(STEAM_SEARCH + "?" + q,
-                                     headers={"User-Agent": UA})
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-            data = json.loads(r.read().decode("utf-8", "ignore"))
-    except Exception as e:
-        print(f"   steam fail: {e}")
-        return None
-    for it in data.get("items", []):
-        if _title_matches(title, it.get("name")):
-            appid = it.get("id")
-            if appid:
-                return STEAM_CDN.format(appid)
-    return None
+def load_local_images():
+    out = []
+    if not os.path.isdir(IMG_DIR):
+        return out
+    for fn in sorted(os.listdir(IMG_DIR)):
+        stem, ext = os.path.splitext(fn)
+        if ext.lower() not in IMG_EXTS:
+            continue
+        out.append((_norm(stem), _words(stem), "img/" + urllib.parse.quote(fn), fn))
+    return out
+
+
+def match_local(title, local_imgs):
+    nt, wt = _norm(title), _words(title)
+    if not nt:
+        return None, None
+    for ns, ws, rel, fn in local_imgs:              # exact normalized
+        if ns and ns == nt:
+            return rel, fn
+    best, best_s = None, 0.0                          # strong word overlap
+    for ns, ws, rel, fn in local_imgs:
+        if not ws or not wt:
+            continue
+        s = len(wt & ws) / len(wt | ws)
+        if s > best_s:
+            best, best_s = (rel, fn), s
+    if best and best_s >= 0.7:
+        return best
+    return None, None
 
 
 # ---------- Google Play (feature graphic, landscape) ----------
 
 def play_image(title):
-    """Wide feature graphic only (no vertical screenshot). Needs the scraper lib."""
     if not title:
         return None
     try:
@@ -324,8 +308,7 @@ def play_image(title):
     except ImportError:
         return None
     try:
-        results = gp_search(title, n_hits=5, lang=STORE_LANG,
-                            country=STORE_COUNTRY)
+        results = gp_search(title, n_hits=5, lang=STORE_LANG, country=STORE_COUNTRY)
     except Exception as e:
         print(f"   play fail: {e}")
         return None
@@ -336,26 +319,24 @@ def play_image(title):
             except Exception as e:
                 print(f"   play app fail: {e}")
                 return None
-            return d.get("headerImage")   # 1024x500 banner; landscape only
+            return d.get("headerImage")
     return None
 
 
-def store_image(title):
-    """Landscape art: Google Play banner -> Steam capsule.
-    Tries the full title first, then the base title (subtitle stripped)."""
+def play_lookup(title):
+    """Google Play, full title then base title."""
+    if not USE_GOOGLE_PLAY:
+        return None
     terms = [title]
     base = _base_title(title)
     if base and _norm(base) != _norm(title):
         terms.append(base)
-    sources = [(play_image, "play")] if USE_GOOGLE_PLAY else []
-    sources.append((steam_image, "steam"))
-    attempts = [(fn, tag, term) for term in terms for fn, tag in sources]
-    for idx, (fn, tag, term) in enumerate(attempts):
+    for idx, term in enumerate(terms):
         if idx:
-            time.sleep(STORE_SLEEP)      # space calls; none wasted on a miss
-        img = fn(term)
+            time.sleep(STORE_SLEEP)
+        img = play_image(term)
         if img:
-            print(f"   -> [{tag}] {img[:80]}")
+            print(f"   -> [play] {img[:80]}")
             return img
     return None
 
@@ -363,33 +344,54 @@ def store_image(title):
 def main():
     with open(GAMES, encoding="utf-8") as fh:
         games = json.load(fh)
-    refreshed = 0
-    kept = 0
-    from_store = 0
+    local_imgs = load_local_images()
+    if local_imgs:
+        print(f"Local img/ files: {len(local_imgs)}")
+    used_local = set()
+    from_local = kept = from_site = from_play = 0
     failed = []
+
     for i, g in enumerate(games, 1):
         url = g.get("url")
         cur = g.get("img")
         title = g.get("title", "?")
 
+        # 1) local file matches this game -> your picture wins
+        rel, fn = match_local(title, local_imgs)
+        if rel:
+            used_local.add(fn)
+            if cur != rel:
+                g["img"] = rel
+                print(f"[{i}/{len(games)}] {title}  -> [local] {rel}")
+            from_local += 1
+            continue
+
+        # 2) a local path is already set -> never overwrite
+        if is_local_img(cur):
+            used_local.add(os.path.basename(urllib.parse.unquote(cur)))
+            kept += 1
+            continue
+
+        # 3) existing good web art -> keep (avoid re-fetch)
         if cur and looks_like_art(cur):
             kept += 1
             continue
 
-        print(f"[{i}/{len(games)}] {title}"
-              + ("  (replacing junk)" if cur else ""))
+        print(f"[{i}/{len(games)}] {title}" + ("  (replacing junk)" if cur else ""))
 
+        # 4) official website preview
         img = best_image(url) if url else None
         if img:
-            print(f"   -> {img[:90]}")
+            print(f"   -> [site] {img[:90]}")
+            from_site += 1
         else:
-            img = store_image(title)
+            # 5) Google Play
+            img = play_lookup(title)
             if img:
-                from_store += 1
+                from_play += 1
 
         if img:
             g["img"] = img
-            refreshed += 1
         else:
             g.pop("img", None)
             failed.append(title)
@@ -397,8 +399,14 @@ def main():
 
     with open(GAMES, "w", encoding="utf-8") as fh:
         json.dump(games, fh, ensure_ascii=False, separators=(",", ":"))
-    print(f"\nDone. Kept good: {kept}. Refreshed: {refreshed} "
-          f"(of which {from_store} from stores). No art: {len(failed)}.")
+
+    print(f"\nDone. Local: {from_local}. Kept: {kept}. "
+          f"Site: {from_site}. Play: {from_play}. No art: {len(failed)}.")
+    unused = [fn for (_, _, _, fn) in local_imgs if fn not in used_local]
+    if unused:
+        print("\nLocal files NOT matched to any game "
+              "(rename them closer to a game title):")
+        print("  " + ", ".join(unused))
     if failed:
         print("No art for:", ", ".join(failed[:60]),
               ("..." if len(failed) > 60 else ""))
