@@ -102,14 +102,16 @@
 
 <div class="jump"><button id="jUp" type="button" aria-label="to top">↑</button><button id="jDn" type="button" aria-label="to bottom">↓</button></div>
 <footer>
-<span class="footer-mark legal" style="flex-basis:100%;font-weight:400;color:var(--dim)">hexplay doesn&#39;t track you or collect your data · all rights belong to their owners</span>
+<span class="footer-mark legal" style="flex-basis:100%;font-weight:400;color:var(--dim)!important">hexplay doesn&#39;t track you or collect your data · all rights belong to their owners</span>
 <span class="footer-mark">// built by a gamer — for gamers</span>
 <span class="footer-mark">hexplay © 2026</span>
 </footer>
 
 </div>
 
-<script>const logoEl = document.querySelector('.logo');
+<script>
+document.addEventListener('touchstart', () => {}, { passive: true });
+const logoEl = document.querySelector('.logo');
 function wordify(sel) {
 document.querySelectorAll(sel).forEach(el => {
 if (el.dataset.wordified) return;
