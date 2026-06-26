@@ -6,8 +6,9 @@ PRIORITY (strict):
   1) local file in img/ matched to the game title  (your picture wins)
   2) official website preview (og:image / twitter:image / image_src), landscape
   3) Google Play feature graphic (landscape)        [needs google-play-scraper]
-  4) Steam header (460x215, always landscape)        [last resort]
-  5) nothing -> card shows "// image soon_"
+  4) TapTap preview (mobile-oriented, landscape)     [before Steam]
+  5) Steam header (460x215, always landscape)        [last resort]
+  6) nothing -> card shows "// image soon_"
 
 Steam is last-resort only. Local images (img/) always win and are never
 overwritten. Web images are re-resolved by priority on every run, so they
@@ -31,10 +32,12 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 TIMEOUT = 15
 
 USE_GOOGLE_PLAY = True
+USE_TAPTAP = True
 USE_STEAM = True
 STORE_SLEEP = 1.2
 STORE_COUNTRY = "us"
 STORE_LANG = "en"
+TAPTAP_HOST = "https://www.taptap.io"
 SITE_MIN_RATIO = 1.2
 MEASURE_BYTES = 131072
 
@@ -345,6 +348,79 @@ def play_lookup(title):
     return None
 
 
+# ---------- TapTap (mobile-oriented preview, landscape) ----------
+
+def _taptap_img_url(v):
+    """Pull a URL out of a TapTap image field (string or {url/original_url})."""
+    if isinstance(v, str):
+        return v
+    if isinstance(v, dict):
+        return v.get("original_url") or v.get("url") or v.get("medium_url")
+    return None
+
+
+def _taptap_search(term):
+    """Return [(app_url, name, banner_url)] from TapTap search (undocumented web API)."""
+    params = urllib.parse.urlencode({
+        "kw": term,
+        "limit": 10,
+        "X-UA": "V=1&PN=WebApp&LANG=en_US",
+    })
+    api = f"{TAPTAP_HOST}/webapiv2/search/v1/by-app?{params}"
+    try:
+        req = urllib.request.Request(api, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+            data = json.loads(r.read().decode("utf-8", "ignore"))
+    except Exception as e:
+        print(f"   taptap fail: {e}")
+        return []
+    items = (data.get("data") or {}).get("list") or data.get("list") or []
+    out = []
+    for it in items:
+        app = it.get("app") or it
+        aid = app.get("id")
+        name = app.get("title") or app.get("name")
+        if not (aid and name):
+            continue
+        banner = (_taptap_img_url(app.get("banner"))
+                  or _taptap_img_url(app.get("cover")))
+        out.append((f"{TAPTAP_HOST}/app/{aid}", name, banner))
+    return out
+
+
+def taptap_image(title):
+    if not title:
+        return None
+    for url, name, banner in _taptap_search(title):
+        if not _title_matches(title, name):
+            continue
+        # prefer TapTap's own landscape banner; else fall back to page og:image
+        if banner and looks_like_art(banner) and is_landscape(banner):
+            return banner
+        img = best_image(url)
+        if img:
+            return img
+    return None
+
+
+def taptap_lookup(title):
+    """TapTap (mobile) preview, full title then base title."""
+    if not USE_TAPTAP:
+        return None
+    terms = [title]
+    base = _base_title(title)
+    if base and _norm(base) != _norm(title):
+        terms.append(base)
+    for idx, term in enumerate(terms):
+        if idx:
+            time.sleep(STORE_SLEEP)
+        img = taptap_image(term)
+        if img:
+            print(f"   -> [taptap] {img[:80]}")
+            return img
+    return None
+
+
 # ---------- Steam (header image, always 460x215 landscape) ----------
 
 def _steam_search(term):
@@ -402,7 +478,7 @@ def main():
     if local_imgs:
         print(f"Local img/ files: {len(local_imgs)}")
     used_local = set()
-    from_local = kept = from_site = from_play = from_steam = 0
+    from_local = kept = from_site = from_play = from_taptap = from_steam = 0
     failed = []
 
     for i, g in enumerate(games, 1):
@@ -440,10 +516,15 @@ def main():
             if img:
                 from_play += 1
             else:
-                # 5) Steam (last resort)
-                img = steam_lookup(title)
+                # 5) TapTap (mobile-oriented, before Steam)
+                img = taptap_lookup(title)
                 if img:
-                    from_steam += 1
+                    from_taptap += 1
+                else:
+                    # 6) Steam (last resort)
+                    img = steam_lookup(title)
+                    if img:
+                        from_steam += 1
 
         if img:
             g["img"] = img
@@ -456,8 +537,8 @@ def main():
         json.dump(games, fh, ensure_ascii=False, separators=(",", ":"))
 
     print(f"\nDone. Local: {from_local}. Kept: {kept}. "
-          f"Site: {from_site}. Play: {from_play}. Steam: {from_steam}. "
-          f"No art: {len(failed)}.")
+          f"Site: {from_site}. Play: {from_play}. TapTap: {from_taptap}. "
+          f"Steam: {from_steam}. No art: {len(failed)}.")
     unused = [fn for (_, _, _, fn) in local_imgs if fn not in used_local]
     if unused:
         print("\nLocal files NOT matched to any game "
