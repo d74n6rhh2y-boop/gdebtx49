@@ -1,0 +1,45 @@
+name: Fetch game images
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 */3 * *"
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install google-play-scraper
+
+      - name: Fetch images into games.json
+        run: python fetch_images.py
+
+      - name: Sync SEO list into index.html
+        run: python update_seo.py
+
+      - name: Commit updated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add games.json index.html sitemap.xml
+          if git diff --cached --quiet; then
+            echo "No changes."
+          else
+            git commit -m "Update game images and SEO list"
+            git pull --rebase --autostash origin main
+            git push
+          fi
