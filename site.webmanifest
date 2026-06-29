@@ -1,0 +1,14 @@
+{
+  "name": "hexplay — curated mobile games",
+  "short_name": "hexplay",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    { "src": "/icon-192.jpg", "sizes": "192x192", "type": "image/jpeg", "purpose": "any" },
+    { "src": "/icon-512.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" }
+  ]
+}
