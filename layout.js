@@ -10,6 +10,13 @@
 (function () {
   var page = document.querySelector('.page');
   if (!page) return;
+
+  // In an installed PWA, skip the hero's entrance animation so the content is
+  // fully in place the instant the iOS app-open zoom finishes (no extra
+  // fade/slide on top of the launch = clean start). Browser tabs keep it.
+  if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) {
+    document.documentElement.classList.add('standalone');
+  }
   var active = (page.getAttribute('data-page') || '').toLowerCase();
   var on = function (name) { return active === name ? ' on' : ''; };
 
