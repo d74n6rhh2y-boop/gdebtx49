@@ -211,6 +211,14 @@ const r = document.getElementById('prime').getBoundingClientRect();
 window.scrollTo({ top: window.scrollY + r.top - 8, behavior: 'smooth' });
 });
 }
+function snapToUpd() {
+requestAnimationFrame(() => {
+const el = document.querySelector('.updrow');
+if (!el) return;
+const r = el.getBoundingClientRect();
+window.scrollTo({ top: Math.max(0, window.scrollY + r.top + r.height / 2 - window.innerHeight / 2), behavior: 'smooth' });
+});
+}
 function renderSelTags() {
 const box = document.getElementById('seltags');
 if (!box) return;
@@ -272,7 +280,7 @@ renderSelTags();
 filtered = [g];
 shown = PAGE_STEP;
 render();
-snapToFilters();
+snapToUpd();
 setMsg('chosen blind');
 });
 document.getElementById('q').addEventListener('input', e => {
