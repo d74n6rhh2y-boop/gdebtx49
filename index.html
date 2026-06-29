@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="color-scheme" content="dark">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>hexplay // best mobile games — iOS, Android &amp; Roblox</title>
+<title>hexplay // catalog of the best mobile games</title>
 <meta name="description" content="hexplay — a hand-picked catalog of the best mobile games (2020+) on iOS, Android &amp; Roblox. Hundreds of titles across RPG, roguelike, strategy, puzzle, horror and more. Smart tags, direct official links, zero filler.">
 <meta name="theme-color" content="#000000">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
@@ -416,22 +416,16 @@ return out;
 }
 function glitchTick() {
 if (!glitchCache) glitchCache = glitchPool();
-const all = glitchCache;
 const vh = window.innerHeight;
-const n = 1;
+const vis = glitchCache.filter(el => { const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < vh && r.width > 0; });
+const n = Math.min(1, vis.length);
 for (let i = 0; i < n; i++) {
-for (let t = 0; t < 10; t++) {
-const el = all[Math.floor(Math.random() * all.length)];
+const el = vis[Math.floor(Math.random() * vis.length)];
 if (!el || el.classList.contains('zap')) continue;
-const r = el.getBoundingClientRect();
-if (r.bottom > 0 && r.top < vh && r.width > 0) {
 el.classList.add('zap');
 setTimeout(() => el.classList.remove('zap'), 350 + Math.random() * 250);
-break;
 }
-}
-}
-setTimeout(glitchTick, 4000 + Math.random() * 3500);
+setTimeout(glitchTick, 2600 + Math.random() * 2600);
 }
 idle(() => setTimeout(glitchTick, 600));
 function logoTick() {
