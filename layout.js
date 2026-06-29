@@ -22,8 +22,8 @@
 
   // Subtitle shown under the slogan, per page. Edit here once — applies everywhere.
   var SUBTITLE = {
-    games: 'Indie gems, top and hidden hits. Concise. Direct. Clear.<br>Use tags &gt; pick a game &gt; play better',
-    about: 'Indie gems, top and hidden hits. Concise. Direct. Clear.<br>Use tags &gt; pick a game &gt; play better'
+    games: 'Indie gems, top and hidden hits. Concise. Direct. Clear.<br>Use tags &gt; pick a game &gt; play better.',
+    about: 'Indie gems, top and hidden hits. Concise. Direct. Clear.<br>Use tags &gt; pick a game &gt; play better.'
   };
   var sub = SUBTITLE[active] ? '<p>' + SUBTITLE[active] + '</p>' : '';
 
