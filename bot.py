@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+"""hexplay pick bot — posts a random game ("pick for me" style) to Telegram and X.
+
+Fetches games.json from the live site, picks a random game, posts to whichever
+platforms have credentials set.
+
+Env (a platform is used only if its vars are present):
+  TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL                     (e.g. @hexplay)
+  X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET
+  DRY_RUN=1   -> print posts instead of sending
+"""
+import os, json, random, sys, tempfile, html, urllib.request
+
+GAMES_URL   = "https://hexplay.games/games.json"
+SITE        = "hexplay.games"
+SITE_URL    = "https://hexplay.games"
+PLAT_LETTER = {"i": "A", "a": "G", "r": "R"}   # App Store / Google Play / Roblox
+
+
+def fetch_games():
+    req = urllib.request.Request(GAMES_URL, headers={"User-Agent": "hexplay-bot"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)
+
+
+def pick(games):
+    pool = [g for g in games if g.get("url")]   # must have a link to share
+    return random.choice(pool)
+
+
+def image_url(g):
+    img = g.get("img")
+    if not img:
+        return None
+    return img if img.startswith("http") else f"{SITE_URL}/{img}"
+
+
+# ---------- formatting ----------
+def plat_letters(g):
+    order = []
+    for c in ("i", "a", "r"):
+        if c not in order and any(code == c for code, _ in g.get("p", [])):
+            order.append(c)
+    return "".join(PLAT_LETTER[c] for c in order)
+
+
+def years_str(g):
+    ys = sorted({y for _, y in g.get("p", [])})
+    return "/".join(str(y) for y in ys)
+
+
+def meta_line(g):
+    base = " ".join(x for x in (plat_letters(g), years_str(g)) if x)
+    if g.get("pick"):
+        base = (base + " #hexplay").strip()
+    return base
+
+
+def hashtag_lines(g):
+    out = []
+    for cat in (g.get("gameplay"), g.get("features"), g.get("modes")):
+        if cat:
+            out.append(" ".join("#" + t.replace(" ", "") for t in cat))
+    return out
+
+
+def telegram_html(g):
+    esc = lambda s: html.escape(s, quote=False)
+    lines = [esc(g["title"])]
+    m = meta_line(g)
+    if m:
+        lines.append(esc(m))
+    lines += hashtag_lines(g)
+    lines += ["", f'// pick for me \u2022 <a href="{SITE_URL}">{SITE}</a>']
+    return "\n".join(lines)
+
+
+def tweet_x(g):
+    lines = [g["title"]]
+    m = meta_line(g)
+    if m:
+        lines.append(m)
+    lines += hashtag_lines(g)
+    lines += ["", f"// pick for me \u2022 {SITE}"]
+    return "\n".join(lines)
+
+
+# ---------- senders ----------
+def post_telegram(g):
+    import requests
+    token   = os.environ["TELEGRAM_BOT_TOKEN"]
+    channel = os.environ["TELEGRAM_CHANNEL"]
+    api     = f"https://api.telegram.org/bot{token}"
+    cap     = telegram_html(g)
+    photo   = image_url(g)
+    if photo:
+        r = requests.post(f"{api}/sendPhoto",
+            data={"chat_id": channel, "photo": photo, "caption": cap, "parse_mode": "HTML"}, timeout=30)
+        if r.ok:
+            return "telegram: photo sent"
+    r = requests.post(f"{api}/sendMessage",
+        data={"chat_id": channel, "text": cap, "parse_mode": "HTML", "disable_web_page_preview": "false"}, timeout=30)
+    r.raise_for_status()
+    return "telegram: text sent"
+
+
+def post_x(g):
+    import tweepy
+    k = (os.environ["X_API_KEY"], os.environ["X_API_SECRET"],
+         os.environ["X_ACCESS_TOKEN"], os.environ["X_ACCESS_SECRET"])
+    client = tweepy.Client(consumer_key=k[0], consumer_secret=k[1],
+                           access_token=k[2], access_token_secret=k[3])
+    media_ids = None
+    url = image_url(g)
+    if url:
+        try:
+            api_v1 = tweepy.API(tweepy.OAuth1UserHandler(*k))
+            ext = os.path.splitext(url.split("?")[0])[1].lower()
+            if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
+                ext = ".jpg"
+            fn = tempfile.NamedTemporaryFile(suffix=ext, delete=False).name
+            urllib.request.urlretrieve(url, fn)
+            media_ids = [api_v1.media_upload(fn).media_id]
+        except Exception as e:
+            print(f"x: media skipped ({e})")
+            media_ids = None
+    client.create_tweet(text=tweet_x(g), media_ids=media_ids)
+    return "x: tweeted" + (" with image" if media_ids else "")
+
+
+# ---------- main ----------
+def main():
+    dry = os.environ.get("DRY_RUN") == "1"
+    games = fetch_games()
+    g = pick(games)
+    print(f"picked: {g['title']}")
+
+    if dry:
+        print("\n--- TELEGRAM (HTML) ---\n" + telegram_html(g))
+        print("\n--- X ---\n" + tweet_x(g))
+        print(f"\nimage: {image_url(g)}")
+        return
+
+    targets = []
+    if os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHANNEL"):
+        targets.append(post_telegram)
+    if all(os.environ.get(v) for v in ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET")):
+        targets.append(post_x)
+    if not targets:
+        sys.exit("no credentials set for any platform")
+
+    failed = False
+    for send in targets:
+        try:
+            print(send(g))
+        except Exception as e:
+            failed = True
+            print(f"ERROR in {send.__name__}: {e}")
+    if failed:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
