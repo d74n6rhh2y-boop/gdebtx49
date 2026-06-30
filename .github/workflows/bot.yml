@@ -1,0 +1,30 @@
+name: hexplay pick bot
+
+on:
+  schedule:
+    - cron: '0 15 * * *'      # every day at 15:00 UTC — adjust / duplicate for more posts
+  workflow_dispatch:           # manual "Run workflow" button
+    inputs:
+      dry_run:
+        description: 'Print the post only, do not send'
+        type: boolean
+        default: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests tweepy
+      - run: python bot.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL:   ${{ secrets.TELEGRAM_CHANNEL }}
+          X_API_KEY:          ${{ secrets.X_API_KEY }}
+          X_API_SECRET:       ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN:     ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET:    ${{ secrets.X_ACCESS_SECRET }}
+          DRY_RUN: ${{ github.event.inputs.dry_run == 'true' && '1' || '' }}
