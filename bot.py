@@ -97,7 +97,7 @@ def telegram_html(g):
     if m:
         lines.append(esc(m))
     lines += hashtag_lines(g)
-    lines += ["", f'// tap & play \u2022 <a href="{SITE_URL}">{SITE}</a>']
+    lines += ["", f'// play better \u2022 <a href="{SITE_URL}">{SITE}</a>']
     return "\n".join(lines)
 
 
@@ -107,7 +107,7 @@ def tweet_x(g):
     if m:
         lines.append(m)
     lines += hashtag_lines(g)
-    lines += ["", f"// tap & play \u2022 {SITE}"]
+    lines += ["", f"// play better \u2022 {SITE}"]
     return "\n".join(lines)
 
 
@@ -170,7 +170,7 @@ def _bsky_richtext(g):
                 tag = t.replace(" ", "")
                 (tb.text(" ") if i else tb).tag("#" + tag, tag)
             tb.text("\n")
-    tb.text("\n// tap & play \u2022 ").link(SITE, SITE_URL)
+    tb.text("\n// play better \u2022 ").link(SITE, SITE_URL)
     return tb
 
 
