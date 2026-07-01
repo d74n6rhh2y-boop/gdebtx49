@@ -52,9 +52,7 @@ def image_url(game):
 
 
 def videogame(game):
-    item = {"@type": "VideoGame", "name": game["title"]}
-    if game.get("url"):                      # url is optional in games.json
-        item["url"] = game["url"]
+    item = {"@type": "VideoGame", "name": game["title"], "url": game["url"]}
     genre = game.get("gameplay") or []
     if genre:
         item["genre"] = genre
@@ -73,12 +71,8 @@ def videogame(game):
 def noscript_list(games):
     rows = []
     for g in games:
+        url = html.escape(g["url"], quote=True)
         title = html.escape(g["title"])
-        if g.get("url"):                     # plain text when there is no link
-            url = html.escape(g["url"], quote=True)
-            entry = f'<a href="{url}" rel="noopener">{title}</a>'
-        else:
-            entry = title
         meta = ", ".join(platforms(g))
         ys = years(g)
         if ys:
@@ -87,7 +81,7 @@ def noscript_list(games):
         if genre:
             meta += " · " + html.escape(", ".join(genre))
         rows.append(
-            f"<li>{entry}"
+            f'<li><a href="{url}" rel="noopener">{title}</a>'
             + (f" — {meta}" if meta else "")
             + "</li>"
         )

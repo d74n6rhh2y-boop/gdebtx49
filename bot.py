@@ -63,8 +63,11 @@ def image_url(g):
 
 # ---------- formatting ----------
 def plat_letters(g):
-    codes = {code for code, _ in g.get("p", [])}
-    return "".join(PLAT_LETTER[c] for c in ("i", "a", "r") if c in codes)
+    order = []
+    for c in ("i", "a", "r"):
+        if c not in order and any(code == c for code, _ in g.get("p", [])):
+            order.append(c)
+    return "".join(PLAT_LETTER[c] for c in order)
 
 
 def years_str(g):
@@ -141,12 +144,9 @@ def post_x(g):
             ext = os.path.splitext(url.split("?")[0])[1].lower()
             if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
                 ext = ".jpg"
-            req = urllib.request.Request(url, headers={"User-Agent": "hexplay-bot"})
-            with urllib.request.urlopen(req, timeout=30) as r, \
-                 tempfile.NamedTemporaryFile(suffix=ext) as fh:   # auto-deleted
-                fh.write(r.read())
-                fh.flush()
-                media_ids = [api_v1.media_upload(fh.name).media_id]
+            fn = tempfile.NamedTemporaryFile(suffix=ext, delete=False).name
+            urllib.request.urlretrieve(url, fn)
+            media_ids = [api_v1.media_upload(fn).media_id]
         except Exception as e:
             print(f"x: media skipped ({e})")
             media_ids = None

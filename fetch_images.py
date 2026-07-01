@@ -72,7 +72,7 @@ def is_bad_img(u):
 
 
 def looks_like_art(u):
-    return not is_bad_img(u)
+    return bool(u) and not is_bad_img(u)
 
 
 def is_local_img(u):
@@ -196,7 +196,12 @@ def fetch_html(url):
         if "html" not in r.headers.get("Content-Type", "").lower():
             return None
         raw = r.read(600_000)
-    return raw.decode("utf-8", errors="ignore")
+    for enc in ("utf-8", "latin-1"):
+        try:
+            return raw.decode(enc, errors="ignore")
+        except Exception:
+            continue
+    return None
 
 
 def best_image(url):
