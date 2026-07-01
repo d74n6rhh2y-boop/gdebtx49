@@ -10,7 +10,7 @@ Env (a platform is used only if its vars are present):
   X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET
   DRY_RUN=1   -> print posts instead of sending
 """
-import os, json, random, sys, tempfile, html, urllib.request
+import os, json, random, sys, tempfile, html, datetime, calendar, urllib.request
 
 HERE        = os.path.dirname(os.path.abspath(__file__))
 STATE       = os.path.join(HERE, "bot_state.json")  # post history: cycle through all before repeating
@@ -154,8 +154,21 @@ def post_x(g):
 
 
 # ---------- main ----------
+def is_rest_day(d):
+    """No post on the 5th/10th/15th/20th/25th/30th. February has no 30th, so its
+    last day (28 or 29) stands in for it."""
+    if d.day in (5, 10, 15, 20, 25, 30):
+        return True
+    return d.month == 2 and d.day == calendar.monthrange(d.year, 2)[1]
+
+
 def main():
     dry = os.environ.get("DRY_RUN") == "1"
+    if os.environ.get("EVENT") == "schedule":          # rest days apply to the schedule only
+        today = datetime.date.today()                  # runner is UTC (cron fires 18:00 UTC)
+        if is_rest_day(today):
+            print(f"{today} is a rest day (5/10/15/20/25/30) — no post")
+            return
     games = fetch_games()
     posted = load_posted()
     g, posted = choose(games, posted)
