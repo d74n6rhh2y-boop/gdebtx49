@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""hexplay pick bot — posts a random game ("pick for me" style) to Telegram and X.
+"""hexplay pick bot — posts a random game ("pick for me" style) to Telegram, Bluesky, and X.
 
 Fetches games.json from the live site, picks a game (every game is shown once
 before any repeats — see bot_state.json), and posts to whichever platforms have
@@ -7,7 +7,8 @@ credentials set.
 
 Env (a platform is used only if its vars are present):
   TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL                     (e.g. @hexplay)
-  X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET
+  BLUESKY_HANDLE, BLUESKY_APP_PASSWORD                     (handle e.g. hexplay.bsky.social)
+  X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET (paid pay-per-use; optional)
   DRY_RUN=1   -> print posts instead of sending
 """
 import os, json, random, sys, tempfile, html, datetime, calendar, urllib.request
@@ -153,6 +154,47 @@ def post_x(g):
     return "x: tweeted" + (" with image" if media_ids else "")
 
 
+def _bsky_richtext(g):
+    """Same layout as the other platforms, with clickable link + hashtags (facets)."""
+    from atproto import client_utils
+    tb = client_utils.TextBuilder()
+    tb.text(g["title"] + "\n")
+    meta = " ".join(x for x in (plat_letters(g), years_str(g)) if x)
+    tb.text(meta)
+    if g.get("pick"):
+        tb.text(" ").tag("#hexplay", "hexplay")
+    tb.text("\n")
+    for cat in (g.get("gameplay"), g.get("features"), g.get("modes")):
+        if cat:
+            for i, t in enumerate(cat):
+                tag = t.replace(" ", "")
+                (tb.text(" ") if i else tb).tag("#" + tag, tag)
+            tb.text("\n")
+    tb.text("\n// tap & play \u2022 ").link(SITE, SITE_URL)
+    return tb
+
+
+def post_bluesky(g):
+    from atproto import Client
+    client = Client()
+    client.login(os.environ["BLUESKY_HANDLE"], os.environ["BLUESKY_APP_PASSWORD"])
+    rt = _bsky_richtext(g)
+    url = image_url(g)
+    if url:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "hexplay-bot"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                img = r.read()
+            if img and len(img) <= 976_000:                 # Bluesky blob limit ~1MB
+                client.send_image(text=rt, image=img, image_alt=g["title"])
+                return "bluesky: image posted"
+            print("bluesky: image too large, posting text only")
+        except Exception as e:
+            print(f"bluesky: image skipped ({e})")
+    client.send_post(text=rt)
+    return "bluesky: posted"
+
+
 # ---------- main ----------
 def is_rest_day(d):
     """No post on the 5th/10th/15th/20th/25th/30th. February has no 30th, so its
@@ -178,6 +220,7 @@ def main():
     if dry:
         print("\n--- TELEGRAM (HTML) ---\n" + telegram_html(g))
         print("\n--- X ---\n" + tweet_x(g))
+        print("\n--- BLUESKY ---\n" + _bsky_richtext(g).build_text())
         print(f"\nimage: {image_url(g)}")
         return                                  # dry run: do not consume the game
 
@@ -186,6 +229,8 @@ def main():
         targets.append(post_telegram)
     if all(os.environ.get(v) for v in ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET")):
         targets.append(post_x)
+    if os.environ.get("BLUESKY_HANDLE") and os.environ.get("BLUESKY_APP_PASSWORD"):
+        targets.append(post_bluesky)
     if not targets:
         sys.exit("no credentials set for any platform")
 
