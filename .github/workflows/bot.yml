@@ -2,7 +2,7 @@ name: hexplay pick bot
 
 on:
   schedule:
-    - cron: '0 15 * * *'      # every day at 15:00 UTC — adjust / duplicate for more posts
+    - cron: '0 18 * * *'      # every day at 18:00 UTC (bot.py skips rest days: 5/10/15/20/25/30)
   workflow_dispatch:           # manual "Run workflow" button
     inputs:
       dry_run:
@@ -30,6 +30,7 @@ jobs:
           X_ACCESS_TOKEN:     ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_SECRET:    ${{ secrets.X_ACCESS_SECRET }}
           DRY_RUN: ${{ github.event.inputs.dry_run == 'true' && '1' || '' }}
+          EVENT:   ${{ github.event_name }}
 
       - name: Persist post history
         if: always()             # commit even if one platform failed after a successful post
