@@ -2,16 +2,15 @@
 """hexplay pick bot — posts a random game ("pick for me" style) to Telegram and X.
 
 Fetches games.json from the live site, picks a game (every game is shown once
-before any repeats — see bot_state.json), pulls a one-line description live
-(official site og:description, falling back to Google Play for Android and the
-App Store for iOS), and posts to whichever platforms have credentials set.
+before any repeats — see bot_state.json), and posts to whichever platforms have
+credentials set.
 
 Env (a platform is used only if its vars are present):
   TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL                     (e.g. @hexplay)
   X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET
   DRY_RUN=1   -> print posts instead of sending
 """
-import os, re, json, random, sys, tempfile, html, urllib.request, urllib.parse
+import os, json, random, sys, tempfile, html, urllib.request
 
 HERE        = os.path.dirname(os.path.abspath(__file__))
 STATE       = os.path.join(HERE, "bot_state.json")  # post history: cycle through all before repeating
@@ -61,108 +60,6 @@ def image_url(g):
     return img if img.startswith("http") else f"{SITE_URL}/{img}"
 
 
-# ---------- description (live: official site -> Google Play -> App Store) ----------
-_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
-_DESC_TIMEOUT = 15
-_DESC_WORDS = 10         # short hook: ~8-10 words
-_META_PATTERNS = [
-    r'<meta[^>]+(?:property|name)=["\']og:description["\'][^>]+content=["\']([^"\']*)["\']',
-    r'<meta[^>]+content=["\']([^"\']*)["\'][^>]+(?:property|name)=["\']og:description["\']',
-    r'<meta[^>]+name=["\']twitter:description["\'][^>]+content=["\']([^"\']*)["\']',
-    r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']*)["\']',
-]
-
-
-def _clean_desc(s):
-    s = re.sub(r"\s+", " ", html.unescape(s)).strip()
-    if not s:
-        return ""
-    m = re.match(r"(.+?[.!?])(?:\s|$)", s)                 # first sentence
-    sent = m.group(1) if m else s
-    words = sent.split()
-    if len(words) > _DESC_WORDS:
-        sent = " ".join(words[:_DESC_WORDS]).rstrip(",;:\u2014-") + "\u2026"
-    return sent
-
-
-def _url_desc(url):
-    """Raw og/twitter/meta description from a page's HTML. '' on failure."""
-    if not url:
-        return ""
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": _UA})
-        with urllib.request.urlopen(req, timeout=_DESC_TIMEOUT) as r:
-            if "html" not in r.headers.get("Content-Type", "").lower():
-                return ""
-            page = r.read(600_000).decode("utf-8", "ignore")
-    except Exception as e:
-        print(f"desc: site fetch failed ({e})")
-        return ""
-    for pat in _META_PATTERNS:
-        m = re.search(pat, page, re.I | re.S)
-        if m and m.group(1).strip():
-            return m.group(1)
-    return ""
-
-
-def _norm(s):
-    return re.sub(r"[^a-z0-9]+", "", s.lower())
-
-
-def _play_desc(title):
-    """Short description from the game's Google Play listing (fallback for
-    JS-only official sites). Matches by title. '' on any failure."""
-    try:
-        from google_play_scraper import search, app
-    except Exception:
-        return ""
-    try:
-        q = _norm(title)
-        hits = search(title, n_hits=3, lang="en", country="us") or []
-        app_id = next((h["appId"] for h in hits
-                       if q and (q in _norm(h.get("title", "")) or _norm(h.get("title", "")) in q)), None)
-        if not app_id:
-            return ""
-        info = app(app_id, lang="en", country="us")
-        return info.get("summary") or info.get("description") or ""
-    except Exception as e:
-        print(f"desc: play fallback failed ({e})")
-        return ""
-
-
-def _appstore_desc(title):
-    """Description from the App Store via the free iTunes Search API (no key).
-    Fallback for iOS games. Matches by title. '' on any failure."""
-    try:
-        q = urllib.parse.quote(title)
-        url = f"https://itunes.apple.com/search?term={q}&entity=software&limit=5&country=us"
-        req = urllib.request.Request(url, headers={"User-Agent": _UA})
-        with urllib.request.urlopen(req, timeout=_DESC_TIMEOUT) as r:
-            data = json.load(r)
-    except Exception as e:
-        print(f"desc: appstore fallback failed ({e})")
-        return ""
-    qn = _norm(title)
-    for res in data.get("results", []):
-        name = res.get("trackName", "")
-        if qn and (qn in _norm(name) or _norm(name) in qn):
-            return res.get("description") or ""
-    return ""
-
-
-def fetch_desc(g):
-    """One-line hook. Tries the official site first, then a store fallback:
-    Google Play for Android games, App Store for iOS. '' if no source works."""
-    raw = _url_desc(g.get("url", ""))
-    plats = [code for code, _ in g.get("p", [])]
-    if not raw and "a" in plats:
-        raw = _play_desc(g.get("title", ""))
-    if not raw and "i" in plats:
-        raw = _appstore_desc(g.get("title", ""))
-    return _clean_desc(raw) if raw else ""
-
-
 # ---------- formatting ----------
 def plat_letters(g):
     order = []
@@ -198,8 +95,6 @@ def telegram_html(g):
     m = meta_line(g)
     if m:
         lines.append(esc(m))
-    if g.get("desc"):
-        lines += ["", f'<i>{esc(g["desc"])}</i>']
     lines += hashtag_lines(g)
     lines += ["", f'// tap & play \u2022 <a href="{SITE_URL}">{SITE}</a>']
     return "\n".join(lines)
@@ -210,8 +105,6 @@ def tweet_x(g):
     m = meta_line(g)
     if m:
         lines.append(m)
-    if g.get("desc"):
-        lines += ["", g["desc"]]
     lines += hashtag_lines(g)
     lines += ["", f"// tap & play \u2022 {SITE}"]
     return "\n".join(lines)
@@ -268,9 +161,6 @@ def main():
     g, posted = choose(games, posted)
     total = sum(1 for x in games if x.get("url"))
     print(f"picked: {g['title']}  ({len(posted)}/{total} this cycle)")
-    g["desc"] = fetch_desc(g)
-    if g["desc"]:
-        print(f"desc: {g['desc']}")
 
     if dry:
         print("\n--- TELEGRAM (HTML) ---\n" + telegram_html(g))
