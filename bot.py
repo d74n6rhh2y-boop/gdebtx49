@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """hexplay pick bot — posts a random game ("pick for me" style) to Telegram and X.
 
-Fetches games.json from the live site, picks a random game, pulls a one-line
-description live from the game's official site, and posts to whichever
-platforms have credentials set.
+Fetches games.json from the live site, picks a game (every game is shown once
+before any repeats — see bot_state.json), pulls a one-line description live from
+the game's official site, and posts to whichever platforms have credentials set.
 
 Env (a platform is used only if its vars are present):
   TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL                     (e.g. @hexplay)
@@ -12,6 +12,8 @@ Env (a platform is used only if its vars are present):
 """
 import os, re, json, random, sys, tempfile, html, urllib.request
 
+HERE        = os.path.dirname(os.path.abspath(__file__))
+STATE       = os.path.join(HERE, "bot_state.json")  # post history: cycle through all before repeating
 GAMES_URL   = "https://hexplay.games/games.json"
 SITE        = "hexplay.games"
 SITE_URL    = "https://hexplay.games"
@@ -24,9 +26,31 @@ def fetch_games():
         return json.load(r)
 
 
-def pick(games):
-    pool = [g for g in games if g.get("url")]   # must have a link to share
-    return random.choice(pool)
+def load_posted():
+    try:
+        with open(STATE, encoding="utf-8") as fh:
+            return set(json.load(fh).get("posted", []))
+    except Exception:
+        return set()
+
+
+def save_posted(posted):
+    with open(STATE, "w", encoding="utf-8") as fh:
+        json.dump({"posted": sorted(posted)}, fh, ensure_ascii=False, indent=0)
+
+
+def choose(games, posted):
+    """Pick a game not yet posted this cycle. Once every game has been posted,
+    start a fresh cycle. Newly added games join the current cycle automatically."""
+    pool = [g for g in games if g.get("url")]        # must have a link to share
+    titles = {g["title"] for g in pool}
+    posted = set(posted) & titles                    # forget games no longer listed
+    remaining = [g for g in pool if g["title"] not in posted]
+    if not remaining:                                # whole list done -> new cycle
+        posted, remaining = set(), pool
+    g = random.choice(remaining)
+    posted.add(g["title"])
+    return g, posted
 
 
 def image_url(g):
@@ -40,7 +64,7 @@ def image_url(g):
 _UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
        "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 _DESC_TIMEOUT = 15
-_DESC_MAX = 140          # one short line
+_DESC_WORDS = 10         # short hook: ~8-10 words
 _META_PATTERNS = [
     r'<meta[^>]+(?:property|name)=["\']og:description["\'][^>]+content=["\']([^"\']*)["\']',
     r'<meta[^>]+content=["\']([^"\']*)["\'][^>]+(?:property|name)=["\']og:description["\']',
@@ -55,8 +79,9 @@ def _clean_desc(s):
         return ""
     m = re.match(r"(.+?[.!?])(?:\s|$)", s)                 # first sentence
     sent = m.group(1) if m else s
-    if len(sent) > _DESC_MAX:
-        sent = sent[:_DESC_MAX - 1].rsplit(" ", 1)[0].rstrip(",;:\u2014-") + "\u2026"
+    words = sent.split()
+    if len(words) > _DESC_WORDS:
+        sent = " ".join(words[:_DESC_WORDS]).rstrip(",;:\u2014-") + "\u2026"
     return sent
 
 
@@ -112,25 +137,25 @@ def hashtag_lines(g):
 def telegram_html(g):
     esc = lambda s: html.escape(s, quote=False)
     lines = [f'<b>{esc(g["title"])}</b>']
-    if g.get("desc"):
-        lines.append(esc(g["desc"]))
     m = meta_line(g)
     if m:
         lines.append(esc(m))
+    if g.get("desc"):
+        lines += ["", f'<i>{esc(g["desc"])}</i>']
     lines += hashtag_lines(g)
-    lines += ["", f'// pick for me \u2022 <a href="{SITE_URL}">{SITE}</a>']
+    lines += ["", f'// tap & play \u2022 <a href="{SITE_URL}">{SITE}</a>']
     return "\n".join(lines)
 
 
 def tweet_x(g):
     lines = [g["title"]]
-    if g.get("desc"):
-        lines.append(g["desc"])
     m = meta_line(g)
     if m:
         lines.append(m)
+    if g.get("desc"):
+        lines += ["", g["desc"]]
     lines += hashtag_lines(g)
-    lines += ["", f"// pick for me \u2022 {SITE}"]
+    lines += ["", f"// tap & play \u2022 {SITE}"]
     return "\n".join(lines)
 
 
@@ -181,8 +206,10 @@ def post_x(g):
 def main():
     dry = os.environ.get("DRY_RUN") == "1"
     games = fetch_games()
-    g = pick(games)
-    print(f"picked: {g['title']}")
+    posted = load_posted()
+    g, posted = choose(games, posted)
+    total = sum(1 for x in games if x.get("url"))
+    print(f"picked: {g['title']}  ({len(posted)}/{total} this cycle)")
     g["desc"] = fetch_desc(g.get("url", ""))
     if g["desc"]:
         print(f"desc: {g['desc']}")
@@ -191,7 +218,7 @@ def main():
         print("\n--- TELEGRAM (HTML) ---\n" + telegram_html(g))
         print("\n--- X ---\n" + tweet_x(g))
         print(f"\nimage: {image_url(g)}")
-        return
+        return                                  # dry run: do not consume the game
 
     targets = []
     if os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHANNEL"):
@@ -201,13 +228,16 @@ def main():
     if not targets:
         sys.exit("no credentials set for any platform")
 
-    failed = False
+    posted_ok = failed = False
     for send in targets:
         try:
             print(send(g))
+            posted_ok = True
         except Exception as e:
             failed = True
             print(f"ERROR in {send.__name__}: {e}")
+    if posted_ok:
+        save_posted(posted)                     # mark consumed only if something went out
     if failed:
         sys.exit(1)
 
