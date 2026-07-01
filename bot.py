@@ -207,7 +207,7 @@ def is_rest_day(d):
 def main():
     dry = os.environ.get("DRY_RUN") == "1"
     if os.environ.get("EVENT") == "schedule":          # rest days apply to the schedule only
-        today = datetime.date.today()                  # runner is UTC (cron fires 18:00 UTC)
+        today = datetime.date.today()                  # runner is UTC (cron fires 17:00 UTC)
         if is_rest_day(today):
             print(f"{today} is a rest day (5/10/15/20/25/30) — no post")
             return
