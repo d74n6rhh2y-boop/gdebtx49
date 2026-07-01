@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """hexplay pick bot — posts a random game ("pick for me" style) to Telegram and X.
 
-Fetches games.json from the live site, picks a random game, posts to whichever
+Fetches games.json from the live site, picks a random game, pulls a one-line
+description live from the game's official site, and posts to whichever
 platforms have credentials set.
 
 Env (a platform is used only if its vars are present):
@@ -9,7 +10,7 @@ Env (a platform is used only if its vars are present):
   X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET
   DRY_RUN=1   -> print posts instead of sending
 """
-import os, json, random, sys, tempfile, html, urllib.request
+import os, re, json, random, sys, tempfile, html, urllib.request
 
 GAMES_URL   = "https://hexplay.games/games.json"
 SITE        = "hexplay.games"
@@ -33,6 +34,50 @@ def image_url(g):
     if not img:
         return None
     return img if img.startswith("http") else f"{SITE_URL}/{img}"
+
+
+# ---------- description (fetched live from the game's official site) ----------
+_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+_DESC_TIMEOUT = 15
+_DESC_MAX = 140          # one short line
+_META_PATTERNS = [
+    r'<meta[^>]+(?:property|name)=["\']og:description["\'][^>]+content=["\']([^"\']*)["\']',
+    r'<meta[^>]+content=["\']([^"\']*)["\'][^>]+(?:property|name)=["\']og:description["\']',
+    r'<meta[^>]+name=["\']twitter:description["\'][^>]+content=["\']([^"\']*)["\']',
+    r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']*)["\']',
+]
+
+
+def _clean_desc(s):
+    s = re.sub(r"\s+", " ", html.unescape(s)).strip()
+    if not s:
+        return ""
+    m = re.match(r"(.+?[.!?])(?:\s|$)", s)                 # first sentence
+    sent = m.group(1) if m else s
+    if len(sent) > _DESC_MAX:
+        sent = sent[:_DESC_MAX - 1].rsplit(" ", 1)[0].rstrip(",;:\u2014-") + "\u2026"
+    return sent
+
+
+def fetch_desc(url):
+    """og:description -> twitter:description -> meta description, first sentence. '' on failure."""
+    if not url:
+        return ""
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": _UA})
+        with urllib.request.urlopen(req, timeout=_DESC_TIMEOUT) as r:
+            if "html" not in r.headers.get("Content-Type", "").lower():
+                return ""
+            page = r.read(600_000).decode("utf-8", "ignore")
+    except Exception as e:
+        print(f"desc: fetch failed ({e})")
+        return ""
+    for pat in _META_PATTERNS:
+        m = re.search(pat, page, re.I | re.S)
+        if m and m.group(1).strip():
+            return _clean_desc(m.group(1))
+    return ""
 
 
 # ---------- formatting ----------
@@ -66,7 +111,9 @@ def hashtag_lines(g):
 
 def telegram_html(g):
     esc = lambda s: html.escape(s, quote=False)
-    lines = [esc(g["title"])]
+    lines = [f'<b>{esc(g["title"])}</b>']
+    if g.get("desc"):
+        lines.append(esc(g["desc"]))
     m = meta_line(g)
     if m:
         lines.append(esc(m))
@@ -77,6 +124,8 @@ def telegram_html(g):
 
 def tweet_x(g):
     lines = [g["title"]]
+    if g.get("desc"):
+        lines.append(g["desc"])
     m = meta_line(g)
     if m:
         lines.append(m)
@@ -134,6 +183,9 @@ def main():
     games = fetch_games()
     g = pick(games)
     print(f"picked: {g['title']}")
+    g["desc"] = fetch_desc(g.get("url", ""))
+    if g["desc"]:
+        print(f"desc: {g['desc']}")
 
     if dry:
         print("\n--- TELEGRAM (HTML) ---\n" + telegram_html(g))
