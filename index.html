@@ -4,6 +4,31 @@
 <meta charset="UTF-8">
 <meta name="color-scheme" content="dark">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<style>html.pwaboot body{visibility:hidden}</style>
+<script>
+(function () {
+try {
+if (!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches))) return;
+var d = document.documentElement;
+d.classList.add('pwaboot');
+var done = false;
+function go() { if (done) return; done = true; d.classList.remove('pwaboot'); }
+function ok() { return !window.visualViewport || Math.abs(window.visualViewport.scale - 1) < 0.02; }
+var t0 = Date.now();
+(function chk() {
+if (done) return;
+if (Date.now() - t0 > 1400) { go(); return; }
+if (document.readyState !== 'loading' && ok()) {
+var w = innerWidth;
+requestAnimationFrame(function () { requestAnimationFrame(function () {
+(innerWidth === w && ok()) ? go() : chk();
+}); });
+} else { requestAnimationFrame(chk); }
+})();
+addEventListener('pagehide', go);
+} catch (e) { try { document.documentElement.classList.remove('pwaboot'); } catch (_) {} }
+})();
+</script>
 <title>hexplay // catalog of the best mobile games</title>
 <meta name="description" content="hexplay — a hand-picked catalog of the best mobile games (2020+) on iOS, Android &amp; Roblox. Hundreds of titles across RPG, roguelike, strategy, puzzle, horror and more. Smart tags, direct official links, zero filler.">
 <meta name="theme-color" content="#000000">
