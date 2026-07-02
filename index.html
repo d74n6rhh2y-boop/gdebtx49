@@ -397,6 +397,8 @@ document.getElementById('sortBtn').addEventListener('click', () => {
 sortDir = -sortDir;
 document.getElementById('sortArrow').textContent = sortDir === 1 ? '\u2193' : '\u2191';
 games = sortGames(games);
+if (document.getElementById('lucky').classList.contains('active')) return;
+refreshActive();
 recompute();
 });
 document.getElementById('filters').addEventListener('click', e => {
