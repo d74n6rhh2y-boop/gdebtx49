@@ -10,9 +10,9 @@
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <meta property="og:site_name" content="hexplay">
 <meta property="og:locale" content="en_US">
-<meta property="og:title" content="hexplay // catalog of the best mobile games">
-<meta property="og:description" content="App Store • Google Play • Roblox • industry signals. Indie gems, top and hidden hits.">
-<meta name="twitter:description" content="App Store • Google Play • Roblox • industry signals. Indie gems, top and hidden hits.">
+<meta property="og:title" content="// catalog of the best mobile games">
+<meta property="og:description" content="• iOS, Android, Roblox, PC ports.&#10;• Indie gems, top releases, hidden hits.&#10;• Short. Direct. Smart.">
+<meta name="twitter:description" content="• iOS, Android, Roblox, PC ports.&#10;• Indie gems, top releases, hidden hits.&#10;• Short. Direct. Smart.">
 <meta name="twitter:site" content="@hexplay_">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://hexplay.games/">
@@ -75,6 +75,7 @@ let glitchCache = null;
 const yrMax = g => Math.max(...g.p.map(x => x[1]));
 const yrMin = g => Math.min(...g.p.map(x => x[1]));
 let plats = new Set();
+const HXT = t => (window.HX_T ? window.HX_T(t) : t);
 let sortDir = 1;
 function sortGames(arr) {
 return arr.slice().sort((a, b) => sortDir * (yrMax(b) - yrMax(a) || yrMin(b) - yrMin(a)) || a.title.localeCompare(b.title));
@@ -194,8 +195,8 @@ const colA = document.getElementById('col-a');
 const slice = filtered.slice(0, shown);
 if (!slice.length) {
 colA.innerHTML = scope === 'favs'
-? '<div class="empty">No favorites yet. Tap the star on any card.</div>'
-: '<div class="empty">// nothing here yet</div>';
+? '<div class="empty">' + HXT('No favorites yet. Tap the star on any card.') + '</div>'
+: '<div class="empty">' + HXT('// nothing here yet') + '</div>';
 } else {
 colA.innerHTML = slice.map(cardHTML).join('')
 + (scope === 'favs' && favs.size
@@ -313,7 +314,7 @@ filtered = [g];
 shown = PAGE_STEP;
 render();
 snapToUpd();
-setMsg('chosen blind');
+setMsg(HXT('chosen blind'));
 });
 document.getElementById('q').addEventListener('input', e => {
 query = fold(e.target.value.trim());
