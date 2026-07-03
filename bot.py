@@ -27,17 +27,17 @@ def fetch_games():
         return json.load(r)
 
 
-def load_posted():
+def load_state():
     try:
         with open(STATE, encoding="utf-8") as fh:
-            return set(json.load(fh).get("posted", []))
+            return json.load(fh)
     except Exception:
-        return set()
+        return {}
 
 
-def save_posted(posted):
+def save_state(posted, last):
     with open(STATE, "w", encoding="utf-8") as fh:
-        json.dump({"posted": sorted(posted)}, fh, ensure_ascii=False, indent=0)
+        json.dump({"posted": sorted(posted), "last": last}, fh, ensure_ascii=False, indent=0)
 
 
 def choose(games, posted):
@@ -174,6 +174,21 @@ def _bsky_richtext(g):
     return tb
 
 
+def _shrink_image(data, max_dim=1600, quality=90):
+    """Bluesky renders previews much faster for small blobs; downscale before upload."""
+    try:
+        import io
+        from PIL import Image
+        im = Image.open(io.BytesIO(data)).convert("RGB")
+        im.thumbnail((max_dim, max_dim))
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=quality, optimize=True)
+        out = buf.getvalue()
+        return out if len(out) < len(data) else data
+    except Exception:
+        return data
+
+
 def post_bluesky(g):
     from atproto import Client
     client = Client()
@@ -185,6 +200,7 @@ def post_bluesky(g):
             req = urllib.request.Request(url, headers={"User-Agent": "hexplay-bot"})
             with urllib.request.urlopen(req, timeout=30) as r:
                 img = r.read()
+            img = _shrink_image(img)
             if img and len(img) <= 976_000:                 # Bluesky blob limit ~1MB
                 client.send_image(text=rt, image=img, image_alt=g["title"])
                 return "bluesky: image posted"
@@ -211,8 +227,13 @@ def main():
         if is_rest_day(today):
             print(f"{today} is a rest day (5/10/15/20/25/30) — no post")
             return
+    state = load_state()
+    today_str = str(datetime.date.today())
+    if os.environ.get("EVENT") == "schedule" and state.get("last") == today_str:
+        print(f"already posted today ({today_str}) — skipping duplicate scheduled run")
+        return
     games = fetch_games()
-    posted = load_posted()
+    posted = set(state.get("posted", []))
     g, posted = choose(games, posted)
     total = sum(1 for x in games if x.get("url"))
     print(f"picked: {g['title']}  ({len(posted)}/{total} this cycle)")
@@ -243,7 +264,7 @@ def main():
             failed = True
             print(f"ERROR in {send.__name__}: {e}")
     if posted_ok:
-        save_posted(posted)                     # mark consumed only if something went out
+        save_state(posted, today_str)           # mark consumed only if something went out
     if failed:
         sys.exit(1)
 
