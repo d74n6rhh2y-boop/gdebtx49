@@ -72,7 +72,7 @@ def is_bad_img(u):
 
 
 def looks_like_art(u):
-    return bool(u) and not is_bad_img(u)
+    return not is_bad_img(u)
 
 
 def is_local_img(u):
@@ -196,12 +196,7 @@ def fetch_html(url):
         if "html" not in r.headers.get("Content-Type", "").lower():
             return None
         raw = r.read(600_000)
-    for enc in ("utf-8", "latin-1"):
-        try:
-            return raw.decode(enc, errors="ignore")
-        except Exception:
-            continue
-    return None
+    return raw.decode("utf-8", errors="ignore")
 
 
 def best_image(url):
@@ -534,7 +529,7 @@ def main():
             print("   -> none (cleared; card shows // image soon_)")
 
     with open(GAMES, "w", encoding="utf-8") as fh:
-        json.dump(games, fh, ensure_ascii=False, separators=(",", ":"))
+        fh.write("[\n" + ",\n".join(json.dumps(g, ensure_ascii=False, separators=(",", ":")) for g in games) + "\n]\n")
 
     print(f"\nDone. Local: {from_local}. Kept: {kept}. "
           f"Site: {from_site}. Play: {from_play}. TapTap: {from_taptap}. "
