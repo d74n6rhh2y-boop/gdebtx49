@@ -18,7 +18,7 @@ STATE       = os.path.join(HERE, "bot_state.json")  # post history: cycle throug
 GAMES_URL   = "https://hexplay.games/games.json"
 SITE        = "hexplay.games"
 SITE_URL    = "https://hexplay.games"
-PLAT_LETTER = {"i": "A", "a": "G", "r": "R"}   # App Store / Google Play / Roblox
+PLAT_LETTER = {"i": "Ⓐ", "a": "Ⓖ", "r": "🅁"}   # App Store / Google Play / Roblox
 
 
 def fetch_games():
