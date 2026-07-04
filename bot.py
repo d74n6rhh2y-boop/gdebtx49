@@ -189,6 +189,15 @@ def _shrink_image(data, max_dim=1600, quality=90):
         return data
 
 
+def _img_dims(data):
+    try:
+        import io
+        from PIL import Image
+        return Image.open(io.BytesIO(data)).size          # (width, height)
+    except Exception:
+        return None
+
+
 def post_bluesky(g):
     from atproto import Client
     client = Client()
@@ -202,7 +211,18 @@ def post_bluesky(g):
                 img = r.read()
             img = _shrink_image(img)
             if img and len(img) <= 976_000:                 # Bluesky blob limit ~1MB
-                client.send_image(text=rt, image=img, image_alt=g["title"])
+                kw = {}
+                dims = _img_dims(img)
+                if dims:
+                    try:                                    # real aspect ratio -> no white bars
+                        from atproto import models
+                        kw["image_aspect_ratio"] = models.AppBskyEmbedDefs.AspectRatio(width=dims[0], height=dims[1])
+                    except Exception:
+                        pass
+                try:
+                    client.send_image(text=rt, image=img, image_alt=g["title"], **kw)
+                except TypeError:                           # older atproto without the param
+                    client.send_image(text=rt, image=img, image_alt=g["title"])
                 return "bluesky: image posted"
             print("bluesky: image too large, posting text only")
         except Exception as e:
