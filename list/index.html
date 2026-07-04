@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>// my list</title>
+<meta name="robots" content="noindex">
+<meta property="og:site_name" content="hexplay">
+<meta property="og:title" content="// my list">
+<meta property="og:description" content="My favorites.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://hexplay.games/list/">
+<meta property="og:image" content="https://hexplay.games/og.jpg?v=2">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="// my list">
+<meta name="twitter:description" content="My favorites.">
+<meta name="twitter:image" content="https://hexplay.games/og.jpg?v=2">
+<style>body{background:#0d0d13;color:#8a8a9c;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style>
+</head>
+<body>
+<div>// opening the list&#8230;</div>
+<script>
+var h = location.hash.slice(1);
+location.replace(h ? '/?l=' + encodeURIComponent(h) : '/');
+</script>
+<noscript><a href="/" style="color:#4dd7f0">hexplay.games</a></noscript>
+</body>
+</html>
