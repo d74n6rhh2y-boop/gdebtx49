@@ -130,6 +130,30 @@ def post_telegram(g):
     return "telegram: text sent"
 
 
+def post_threads(g):
+    import requests, time
+    token = os.environ["THREADS_TOKEN"]
+    base = "https://graph.threads.net/v1.0"
+    params = {"access_token": token, "text": tweet_x(g)}   # той самий текст, що для X
+    url = image_url(g)
+    if url:
+        params.update({"media_type": "IMAGE", "image_url": url})
+    else:
+        params["media_type"] = "TEXT"
+    r = requests.post(f"{base}/me/threads", data=params, timeout=30)
+    r.raise_for_status()
+    creation_id = r.json()["id"]
+    last = None
+    for _ in range(10):                                    # медіа обробляється до ~50 с
+        p = requests.post(f"{base}/me/threads_publish",
+                          data={"creation_id": creation_id, "access_token": token}, timeout=30)
+        if p.ok:
+            return "threads: posted" + (" with image" if url else "")
+        last = p.text
+        time.sleep(5)
+    raise RuntimeError(f"threads publish failed: {last}")
+
+
 def post_x(g):
     import tweepy
     k = (os.environ["X_API_KEY"], os.environ["X_API_SECRET"],
@@ -268,6 +292,8 @@ def main():
     targets = []
     if os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHANNEL"):
         targets.append(post_telegram)
+    if os.environ.get("THREADS_TOKEN"):
+        targets.append(post_threads)
     if all(os.environ.get(v) for v in ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET")):
         targets.append(post_x)
     if os.environ.get("BLUESKY_HANDLE") and os.environ.get("BLUESKY_APP_PASSWORD"):
