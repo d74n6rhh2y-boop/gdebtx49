@@ -218,6 +218,7 @@ wordify('.card-title, .card-meta, .empty');
 glitchCache = null;
 }
 let selTags = [];
+let shared = new Set();
 let scope = 'all';
 let query = '';
 function fold(s) {
@@ -227,7 +228,8 @@ function passes(g) {
 const tags = [...(g.gameplay||[]), ...(g.features||[]), ...(g.modes||[])];
 const scopeOk = scope === 'all' ||
 (scope === 'hexplay' ? !!g.pick :
-scope === 'favs' ? favs.has(g.title) : true);
+scope === 'favs' ? favs.has(g.title) :
+scope === 'shared' ? shared.has(g.title) : true);
 const genreOk = selTags.every(t => tags.includes(t));
 const platOk = !plats.size || (g.p || []).some(pr => plats.has(pr[0]));
 const qOk = !query ||
@@ -262,7 +264,7 @@ const ph = [...plats].map(p =>
 const th = selTags.map(t =>
 `<button class="seltag" type="button" data-rm="${t}">${ico('#filters [data-tag="' + t + '"]')}${t}<span class="x">\u00d7</span></button>`).join('');
 const sc = scope !== 'all' ?
-`<button class="seltag" type="button" data-rms="1">${ico('#prime [data-tag="' + scope + '"]')}${scope === 'favs' ? 'favorites' : 'hexplay'}<span class="x">\u00d7</span></button>` : '';
+`<button class="seltag" type="button" data-rms="1">${ico('#prime [data-tag="' + (scope === 'shared' ? 'favs' : scope) + '"]')}${scope === 'favs' ? 'favorites' : scope === 'shared' ? 'shared list' : 'hexplay'}<span class="x">\u00d7</span></button>` : '';
 box.innerHTML = sc + ph + th;
 box.classList.toggle('has', scope !== 'all' || plats.size > 0 || selTags.length > 0);
 glitchCache = null;
@@ -351,7 +353,7 @@ document.getElementById('grid').addEventListener('click', e => {
 const sb = e.target.closest('#shareFavs');
 if (sb) {
 e.preventDefault();
-const url = location.origin + location.pathname + '?l=' +
+const url = location.origin + '/list#' +
 [...favs].map(hxHash).join('.');
 if (navigator.share) { navigator.share({ title: `my hexplay list (${favs.size})`, url }).catch(() => {}); }
 else if (navigator.clipboard) {
@@ -443,16 +445,18 @@ if (m) m.textContent = t;
 }
 function boot() {
 if (!games.length) return;
+if (_sl || _sp) {
 if (_sl) {
 const byHash = new Map(games.map(g => [hxHash(g.title), g.title]));
-_sl.split('.').forEach(h => { const t = byHash.get(h); if (t) favs.add(t); });
-saveFavs(favs);
-setScope('favs');
-} else if (_sp) {
+_sl.split('.').forEach(h => { const t = byHash.get(h); if (t) shared.add(t); });
+} else {
 const titles = new Set(games.map(g => g.title));
-decodeURIComponent(_sp).split('|').forEach(t => { if (titles.has(t)) favs.add(t); });
-saveFavs(favs);
-setScope('favs');
+decodeURIComponent(_sp).split('|').forEach(t => { if (titles.has(t)) shared.add(t); });
+}
+scope = 'shared';
+refreshActive();
+recompute();
+setMsg(`shared list (${shared.size})`);
 } else {
 recompute();
 hxRestore();
