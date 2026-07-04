@@ -443,8 +443,27 @@ saveFavs(favs);
 setScope('favs');
 } else {
 recompute();
+hxRestore();
 }
 warmImages();
+}
+const HXPOS = 'hxpos';
+function hxKey() { return JSON.stringify([scope, selTags.slice().sort(), [...plats].sort(), query, sortDir]); }
+function hxSave() {
+try { sessionStorage.setItem(HXPOS, JSON.stringify({ k: hxKey(), shown: shown, y: Math.round(window.scrollY) })); } catch (e) {}
+}
+let hxST = 0;
+window.addEventListener('scroll', () => { const n = Date.now(); if (n - hxST > 250) { hxST = n; hxSave(); } }, { passive: true });
+window.addEventListener('pagehide', hxSave);
+function hxRestore() {
+try {
+if (history.scrollRestoration) history.scrollRestoration = 'manual';
+const s = JSON.parse(sessionStorage.getItem(HXPOS) || 'null');
+if (!s || s.k !== hxKey() || !(s.shown > PAGE_STEP || s.y > 60)) return;
+shown = Math.max(PAGE_STEP, s.shown | 0);
+render();
+requestAnimationFrame(() => window.scrollTo(0, s.y | 0));
+} catch (e) {}
 }
 fetch('games.json?v=' + new Date().toISOString().slice(0, 10))
 .then(r => { if (!r.ok) throw new Error('load failed'); return r.json(); })
