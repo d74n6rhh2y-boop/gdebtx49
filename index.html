@@ -80,7 +80,7 @@ let sortDir = 1;
 function sortGames(arr) {
 return arr.slice().sort((a, b) => sortDir * (yrMax(b) - yrMax(a) || yrMin(b) - yrMin(a)) || a.title.localeCompare(b.title));
 }
-const PAGE_STEP = 50;
+const PAGE_STEP = 40;
 let shown = PAGE_STEP;
 let _mem = new Set();
 function loadFavs() {
