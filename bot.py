@@ -136,19 +136,22 @@ def post_threads(g):
     base = "https://graph.threads.net/v1.0"
     params = {"access_token": token, "text": tweet_x(g)}   # той самий текст, що для X
     url = image_url(g)
-    if url:
+    ok_img = bool(url) and url.lower().split("?")[0].endswith((".jpg", ".jpeg", ".png"))
+    if ok_img:                                             # Threads приймає лише JPEG/PNG
         params.update({"media_type": "IMAGE", "image_url": url})
     else:
         params["media_type"] = "TEXT"
     r = requests.post(f"{base}/me/threads", data=params, timeout=30)
-    r.raise_for_status()
+    if not r.ok:
+        raise RuntimeError(f"threads create failed: {r.status_code} {r.text[:300]}")
     creation_id = r.json()["id"]
     last = None
     for _ in range(10):                                    # медіа обробляється до ~50 с
         p = requests.post(f"{base}/me/threads_publish",
                           data={"creation_id": creation_id, "access_token": token}, timeout=30)
         if p.ok:
-            return "threads: posted" + (" with image" if url else "")
+            note = " with image" if ok_img else (" (image skipped: unsupported format)" if url else "")
+            return "threads: posted" + note
         last = p.text
         time.sleep(5)
     raise RuntimeError(f"threads publish failed: {last}")
