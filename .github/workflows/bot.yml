@@ -25,7 +25,6 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL:   ${{ secrets.TELEGRAM_CHANNEL }}
-          THREADS_TOKEN:      ${{ secrets.THREADS_TOKEN }}
           BLUESKY_HANDLE:       ${{ secrets.BLUESKY_HANDLE }}
           BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
           X_API_KEY:          ${{ secrets.X_API_KEY }}
