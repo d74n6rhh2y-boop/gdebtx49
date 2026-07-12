@@ -367,4 +367,7 @@
 {"title":"Waven","p":[["i",2024],["a",2024]],"gameplay":["RPG","TurnBased","Card"],"features":[],"modes":["Coop","PvP"],"url":"https://www.waven-game.com/","img":"img/waven.webp"},
 {"title":"Fury Unleashed","p":[["i",2022],["a",2022]],"gameplay":["Shooter","Roguelike","Arcade"],"features":[],"modes":["Offline","Coop"],"url":"https://awesomegamesstudio.com","img":"https://cdn.akamai.steamstatic.com/steam/apps/465200/header.jpg"},
 {"title":"Road Redemption Mobile","p":[["i",2022],["a",2022]],"gameplay":["Racing","Roguelike","Arcade"],"features":[],"modes":["Offline"],"url":"https://www.roadredemption.com/mobile","img":"https://static.wixstatic.com/media/8e5df0_2d50ce0a969944ec9f9d9c12b9efb502%7Emv2.jpg/v1/fit/w_2500,h_1330,al_c/8e5df0_2d50ce0a969944ec9f9d9c12b9efb502%7Emv2.jpg"}
+{"title":"Arknights","p":[["i",2020],["a",2020]],"gameplay":["TowerDefense","Strategy","RPG","Gacha"],"features":[],"modes":[],"url":"https://www.arknights.global/"},
+{"title":"CookieRun: Kingdom","p":[["i",2021],["a",2021]],"gameplay":["RPG","Management","Gacha"],"features":[],"modes":["Coop","PvP"],"url":"https://www.cookierun-kingdom.com/"},
+{"title":"Immortality","p":[["i",2022],["a",2022]],"gameplay":["Adventure"],"features":[],"modes":["Offline"],"url":"https://www.halfmermaid.co/"}
 ]
