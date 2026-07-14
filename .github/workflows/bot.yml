@@ -2,7 +2,7 @@ name: hexplay pick bot
 
 on:
   schedule:
-    - cron: '17 14 * * *'      # bot.py skips rest days: 5/10/15/20/25/30
+    - cron: '00 15 * * *'      # bot.py skips rest days: 5/10/15/20/25/30
   workflow_dispatch:           # manual "Run workflow" button
     inputs:
       dry_run:
