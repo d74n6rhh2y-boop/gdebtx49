@@ -5,11 +5,16 @@ Fetches games.json from the live site, picks a game (every game is shown once
 before any repeats — see bot_state.json), and posts to whichever platforms have
 credentials set.
 
+On the 5th and 20th the bot posts an FAQ question instead — fetched live from
+hexplay.games/about (in page order, looping back to #1 after the last;
+index kept in bot_state.json as "faq").
+
 Env (a platform is used only if its vars are present):
   TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL                     (e.g. @hexplay)
   BLUESKY_HANDLE, BLUESKY_APP_PASSWORD                     (handle e.g. hexplay.bsky.social)
   X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET (paid pay-per-use; optional)
   DRY_RUN=1   -> print posts instead of sending
+  FAQ=1       -> force an FAQ post (useful for manual runs/tests)
 """
 import os, json, random, sys, tempfile, html, datetime, calendar, urllib.request
 
@@ -18,6 +23,7 @@ STATE       = os.path.join(HERE, "bot_state.json")  # post history: cycle throug
 GAMES_URL   = "https://hexplay.games/games.json"
 SITE        = "hexplay.games"
 SITE_URL    = "https://hexplay.games"
+FAQ_URL     = f"{SITE_URL}/about"
 PLAT_LETTER = {"i": "Ⓐ", "a": "Ⓖ", "r": "🅁"}   # App Store / Google Play / Roblox
 
 
@@ -25,6 +31,28 @@ def fetch_games():
     req = urllib.request.Request(GAMES_URL, headers={"User-Agent": "hexplay-bot"})
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.load(r)
+
+
+def fetch_faqs():
+    """Pull FAQ questions live from hexplay.games/about so edits on the site
+    are picked up automatically. A question is any element text ending in "?"
+    (leading numbering like "01 //" is stripped)."""
+    import re
+    req = urllib.request.Request(FAQ_URL, headers={"User-Agent": "hexplay-bot"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        page = r.read().decode("utf-8", "replace")
+    for pat in (r"<summary[^>]*>(.*?)</summary>",             # <details>/<summary> accordion
+                r"<(?:h[1-6]|dt|button)[^>]*>(.*?)</(?:h[1-6]|dt|button)>"):
+        out = []
+        for raw in re.findall(pat, page, re.S | re.I):
+            q = html.unescape(re.sub(r"<[^>]+>", "", raw))    # strip inner tags
+            q = re.sub(r"^\s*\d+\s*(?://|[.)\u00b7-])?\s*", "", q)  # drop "01 //" numbering
+            q = re.sub(r"\s+", " ", q).strip()
+            if q.endswith("?"):
+                out.append(q)
+        if out:
+            return out
+    return []
 
 
 def load_state():
@@ -35,9 +63,10 @@ def load_state():
         return {}
 
 
-def save_state(posted, last):
+def save_state(posted, last, faq=0):
     with open(STATE, "w", encoding="utf-8") as fh:
-        json.dump({"posted": sorted(posted), "last": last}, fh, ensure_ascii=False, indent=0)
+        json.dump({"posted": sorted(posted), "last": last, "faq": faq},
+                  fh, ensure_ascii=False, indent=0)
 
 
 def choose(games, posted):
@@ -83,6 +112,7 @@ def meta_line(g):
 
 
 def hashtag_lines(g):
+    """Line 1: gameplay. Line 2: features + modes merged."""
     out = []
     fm = (g.get("features") or []) + (g.get("modes") or [])
     for cat in (g.get("gameplay"), fm):
@@ -110,6 +140,22 @@ def tweet_x(g):
     lines += hashtag_lines(g)
     lines += ["", "keep or skip?", f"more \u2192 {SITE}"]
     return "\n".join(lines)
+
+
+def telegram_faq(q):
+    esc = html.escape(q, quote=False)
+    return f'#FAQ {esc}\nanswer \u2192 <a href="{FAQ_URL}">{SITE}/about</a>'
+
+
+def tweet_faq(q):
+    return f"#FAQ {q}\nanswer \u2192 {SITE}/about"
+
+
+def _bsky_faq(q):
+    from atproto import client_utils
+    tb = client_utils.TextBuilder()
+    tb.tag("#FAQ", "FAQ").text(" " + q + "\nanswer \u2192 ").link(f"{SITE}/about", FAQ_URL)
+    return tb
 
 
 # ---------- senders ----------
@@ -233,27 +279,104 @@ def post_bluesky(g):
     return "bluesky: posted"
 
 
+def post_telegram_faq(q):
+    import requests
+    token   = os.environ["TELEGRAM_BOT_TOKEN"]
+    channel = os.environ["TELEGRAM_CHANNEL"]
+    r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+        data={"chat_id": channel, "text": telegram_faq(q), "parse_mode": "HTML",
+              "disable_web_page_preview": "false"}, timeout=30)
+    r.raise_for_status()
+    return "telegram: faq sent"
+
+
+def post_x_faq(q):
+    import tweepy
+    client = tweepy.Client(
+        consumer_key=os.environ["X_API_KEY"], consumer_secret=os.environ["X_API_SECRET"],
+        access_token=os.environ["X_ACCESS_TOKEN"], access_token_secret=os.environ["X_ACCESS_SECRET"])
+    client.create_tweet(text=tweet_faq(q))
+    return "x: faq tweeted"
+
+
+def post_bluesky_faq(q):
+    from atproto import Client
+    client = Client()
+    client.login(os.environ["BLUESKY_HANDLE"], os.environ["BLUESKY_APP_PASSWORD"])
+    client.send_post(text=_bsky_faq(q))
+    return "bluesky: faq posted"
+
+
 # ---------- main ----------
 def is_rest_day(d):
-    """No post on the 5th/10th/15th/20th/25th/30th. February has no 30th, so its
-    last day (28 or 29) stands in for it."""
-    if d.day in (5, 10, 15, 20, 25, 30):
+    """No post on the 10th/15th/25th/30th (the 5th and 20th are FAQ days).
+    February has no 30th, so its last day (28 or 29) stands in for it."""
+    if d.day in (10, 15, 25, 30):
         return True
     return d.month == 2 and d.day == calendar.monthrange(d.year, 2)[1]
 
 
+def pick_targets(tg, x, bsky):
+    targets = []
+    if os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHANNEL"):
+        targets.append(tg)
+    if all(os.environ.get(v) for v in ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET")):
+        targets.append(x)
+    if os.environ.get("BLUESKY_HANDLE") and os.environ.get("BLUESKY_APP_PASSWORD"):
+        targets.append(bsky)
+    if not targets:
+        sys.exit("no credentials set for any platform")
+    return targets
+
+
+def send_all(targets, arg, on_success):
+    posted_ok = failed = False
+    for send in targets:
+        try:
+            print(send(arg))
+            posted_ok = True
+        except Exception as e:
+            failed = True
+            print(f"ERROR in {send.__name__}: {e}")
+    if posted_ok:
+        on_success()
+    if failed:
+        sys.exit(1)
+
+
 def main():
     dry = os.environ.get("DRY_RUN") == "1"
-    if os.environ.get("EVENT") == "schedule":          # rest days apply to the schedule only
+    faq_mode = os.environ.get("FAQ") == "1"
+    if os.environ.get("EVENT") == "schedule":          # FAQ/rest days apply to the schedule only
         today = datetime.date.today()                  # runner is UTC (cron fires 17:00 UTC)
-        if is_rest_day(today):
-            print(f"{today} is a rest day (5/10/15/20/25/30) — no post")
+        if today.day in (5, 20):
+            faq_mode = True
+        elif is_rest_day(today):
+            print(f"{today} is a rest day (10/15/25/30) — no post")
             return
     state = load_state()
     today_str = str(datetime.date.today())
     if os.environ.get("EVENT") == "schedule" and state.get("last") == today_str:
         print(f"already posted today ({today_str}) — skipping duplicate scheduled run")
         return
+
+    if faq_mode:
+        faqs = fetch_faqs()
+        if not faqs:
+            sys.exit("no FAQ questions parsed from /about — check the page markup")
+        i = state.get("faq", 0) % len(faqs)
+        q = faqs[i]
+        print(f"faq: {i + 1}/{len(faqs)} — {q}")
+        if dry:
+            print("\n--- TELEGRAM (HTML) ---\n" + telegram_faq(q))
+            print("\n--- X ---\n" + tweet_faq(q))
+            print("\n--- BLUESKY ---\n" + _bsky_faq(q).build_text())
+            return                              # dry run: do not advance the FAQ index
+        targets = pick_targets(post_telegram_faq, post_x_faq, post_bluesky_faq)
+        send_all(targets, q, lambda: save_state(
+            set(state.get("posted", [])), today_str, (i + 1) % len(faqs)))
+        return
+
     games = fetch_games()
     posted = set(state.get("posted", []))
     g, posted = choose(games, posted)
@@ -267,28 +390,8 @@ def main():
         print(f"\nimage: {image_url(g)}")
         return                                  # dry run: do not consume the game
 
-    targets = []
-    if os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHANNEL"):
-        targets.append(post_telegram)
-    if all(os.environ.get(v) for v in ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET")):
-        targets.append(post_x)
-    if os.environ.get("BLUESKY_HANDLE") and os.environ.get("BLUESKY_APP_PASSWORD"):
-        targets.append(post_bluesky)
-    if not targets:
-        sys.exit("no credentials set for any platform")
-
-    posted_ok = failed = False
-    for send in targets:
-        try:
-            print(send(g))
-            posted_ok = True
-        except Exception as e:
-            failed = True
-            print(f"ERROR in {send.__name__}: {e}")
-    if posted_ok:
-        save_state(posted, today_str)           # mark consumed only if something went out
-    if failed:
-        sys.exit(1)
+    targets = pick_targets(post_telegram, post_x, post_bluesky)
+    send_all(targets, g, lambda: save_state(posted, today_str, state.get("faq", 0)))
 
 
 if __name__ == "__main__":
