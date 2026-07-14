@@ -84,7 +84,8 @@ def meta_line(g):
 
 def hashtag_lines(g):
     out = []
-    for cat in (g.get("gameplay"), g.get("features"), g.get("modes")):
+    fm = (g.get("features") or []) + (g.get("modes") or [])
+    for cat in (g.get("gameplay"), fm):
         if cat:
             out.append(" ".join("#" + t.replace(" ", "") for t in cat))
     return out
@@ -97,7 +98,7 @@ def telegram_html(g):
     if m:
         lines.append(esc(m))
     lines += hashtag_lines(g)
-    lines += ["", f'// play better \u2022 <a href="{SITE_URL}">{SITE}</a>']
+    lines += ["", "keep or skip?", f'more \u2192 <a href="{SITE_URL}">{SITE}</a>']
     return "\n".join(lines)
 
 
@@ -107,7 +108,7 @@ def tweet_x(g):
     if m:
         lines.append(m)
     lines += hashtag_lines(g)
-    lines += ["", f"// play better \u2022 {SITE}"]
+    lines += ["", "keep or skip?", f"more \u2192 {SITE}"]
     return "\n".join(lines)
 
 
@@ -164,13 +165,14 @@ def _bsky_richtext(g):
     if g.get("pick"):
         tb.text(" ").tag("#hexplay", "hexplay")
     tb.text("\n")
-    for cat in (g.get("gameplay"), g.get("features"), g.get("modes")):
+    fm = (g.get("features") or []) + (g.get("modes") or [])
+    for cat in (g.get("gameplay"), fm):
         if cat:
             for i, t in enumerate(cat):
                 tag = t.replace(" ", "")
                 (tb.text(" ") if i else tb).tag("#" + tag, tag)
             tb.text("\n")
-    tb.text("\n// play better \u2022 ").link(SITE, SITE_URL)
+    tb.text("\nkeep or skip?\nmore \u2192 ").link(SITE, SITE_URL)
     return tb
 
 
