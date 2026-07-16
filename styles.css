@@ -10,3 +10,10 @@ html.standalone .page{padding-top:calc(56px + env(safe-area-inset-top))}
 @media (max-width:720px){html.standalone .page{padding-top:calc(50px + env(safe-area-inset-top))}}
 @media (display-mode:standalone){header{top:env(safe-area-inset-top)}.page{padding-top:calc(56px + env(safe-area-inset-top))}}
 @media (display-mode:standalone) and (max-width:720px){.page{padding-top:calc(50px + env(safe-area-inset-top))}}
+
+/* Ширші картки й рамки на десктопі (≥721px) — під сітку 1200px в index.html.
+   На мобільних (<720px) ці значення не діють: екран вужчий, тож там усе як є. */
+@media (min-width:721px){
+  .page{max-width:1200px}
+  header{max-width:1200px}
+}
