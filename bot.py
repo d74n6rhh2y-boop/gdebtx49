@@ -347,13 +347,12 @@ def send_all(targets, arg, on_success):
 def main():
     dry = os.environ.get("DRY_RUN") == "1"
     faq_mode = os.environ.get("FAQ") == "1"
-    if os.environ.get("EVENT") == "schedule":          # FAQ/rest days apply to the schedule only
-        today = datetime.date.today()                  # runner is UTC (cron fires 17:00 UTC)
-        if today.day in (5, 20):
-            faq_mode = True
-        elif is_rest_day(today):
-            print(f"{today} is a rest day (10/15/25/30) — no post")
-            return
+    today = datetime.date.today()                      # runner is UTC
+    if today.day in (5, 20):                           # FAQ days apply to every run
+        faq_mode = True
+    if os.environ.get("EVENT") == "schedule" and is_rest_day(today):
+        print(f"{today} is a rest day (10/15/25/30) — no post")
+        return
     state = load_state()
     today_str = str(datetime.date.today())
     if os.environ.get("EVENT") == "schedule" and state.get("last") == today_str:
