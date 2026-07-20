@@ -35,24 +35,24 @@ def fetch_games():
 
 def fetch_faqs():
     """Pull FAQ questions live from hexplay.games/about so edits on the site
-    are picked up automatically. A question is any element text ending in "?"
-    (leading numbering like "01 //" is stripped)."""
+    are picked up automatically. Any element text ending in "?" counts as a
+    question, tag-agnostic (leading numbering like "01 //" is stripped)."""
     import re
     req = urllib.request.Request(FAQ_URL, headers={"User-Agent": "hexplay-bot"})
     with urllib.request.urlopen(req, timeout=30) as r:
         page = r.read().decode("utf-8", "replace")
-    for pat in (r"<summary[^>]*>(.*?)</summary>",             # <details>/<summary> accordion
-                r"<(?:h[1-6]|dt|button)[^>]*>(.*?)</(?:h[1-6]|dt|button)>"):
-        out = []
-        for raw in re.findall(pat, page, re.S | re.I):
-            q = html.unescape(re.sub(r"<[^>]+>", "", raw))    # strip inner tags
-            q = re.sub(r"^\s*\d+\s*(?://|[.)\u00b7-])?\s*", "", q)  # drop "01 //" numbering
-            q = re.sub(r"\s+", " ", q).strip()
-            if q.endswith("?"):
-                out.append(q)
-        if out:
-            return out
-    return []
+    page = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", page, flags=re.S | re.I)
+    # keep inline tags from splitting a question (<b>hexplay</b> etc.)
+    text = re.sub(r"</?(?:b|i|em|strong|span|a|u|s|small|mark|code)[^>]*>", "", page, flags=re.I)
+    text = re.sub(r"<[^>]+>", "\n", text)
+    out, seen = [], set()
+    for line in html.unescape(text).splitlines():
+        q = re.sub(r"^\s*\d+\s*(?://|[.)\u00b7-])?\s*", "", line)
+        q = re.sub(r"\s+", " ", q).strip()
+        if q.endswith("?") and 8 <= len(q) <= 160 and q not in seen:
+            seen.add(q)
+            out.append(q)
+    return out
 
 
 def load_state():
