@@ -9,6 +9,10 @@ on:
         description: 'Print the post only, do not send'
         type: boolean
         default: false
+      faq:
+        description: 'Post an FAQ question instead of a game'
+        type: boolean
+        default: false
 
 jobs:
   post:
@@ -32,6 +36,7 @@ jobs:
           X_ACCESS_TOKEN:     ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_SECRET:    ${{ secrets.X_ACCESS_SECRET }}
           DRY_RUN: ${{ github.event.inputs.dry_run == 'true' && '1' || '' }}
+          FAQ:     ${{ github.event.inputs.faq == 'true' && '1' || '' }}
           EVENT:   ${{ github.event_name }}
 
       - name: Persist post history
