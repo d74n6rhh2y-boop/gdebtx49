@@ -92,6 +92,9 @@ def main() -> int:
     today = datetime.date.today().isoformat()
     with open(GAMES_FILE, encoding="utf-8") as f:
         games = json.load(f)
+    # SEO surfaces list only games that have a link — same rule as bot.py.
+    # A game without "url" must not crash the sync.
+    games = [g for g in games if g.get("url")]
     with open(HTML_FILE, encoding="utf-8") as f:
         html_src = f.read()
 
