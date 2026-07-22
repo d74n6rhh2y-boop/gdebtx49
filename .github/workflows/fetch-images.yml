@@ -2,7 +2,7 @@ name: Fetch game images
 
 on:
   workflow_dispatch:
-  
+
 permissions:
   contents: write
 
@@ -19,10 +19,13 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install google-play-scraper
+        run: pip install google-play-scraper pillow
 
       - name: Fetch images into games.json
         run: python fetch_images.py
+
+      - name: Optimize images to WebP
+        run: python optimize_images.py
 
       - name: Sync SEO list into index.html
         run: python update_seo.py
@@ -31,11 +34,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add games.json index.html sitemap.xml
+          git add games.json index.html sitemap.xml img
           if git diff --cached --quiet; then
             echo "No changes."
           else
-            git commit -m "Update game images and SEO list"
+            git commit -m "Optimize images, update SEO list"
             git pull --rebase --autostash origin main
             git push
           fi
