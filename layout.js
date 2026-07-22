@@ -31,10 +31,10 @@ about: 'Indie gems, top releases, hidden hits.<br>Short. Direct. Smart.<br>Use t
   page.insertAdjacentHTML('afterbegin',
     '<header>' +
       '<a class="wordmark" href="/">' +
-        'hexplay' +
+        'hexplay'+(IN_APP?'<span style="color:var(--cyan)">_</span>':'') +
       '</a>' +
       (IN_APP ? '' :
-      '<a class="nav-btn" id="pwaBtn" href="#" style="margin-left:14px;margin-right:auto"><svg class="nav-ic" style="color:var(--cyan)" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>app</a>') +
+      '<a class="nav-btn" id="pwaBtn" href="#" style="margin-left:7px;margin-right:auto"><svg class="nav-ic" style="color:var(--cyan)" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>app</a>') +
       '<nav class="nav">' +
         '<a href="/" class="nav-btn' + on('games') + '"><svg class="nav-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6" r="3"/><path d="M12 9v6"/><path d="M6 15h12a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Z"/></svg>games</a>' +
         '<a href="/about" class="nav-btn' + on('about') + '"><svg class="nav-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>about</a>' +
@@ -76,16 +76,16 @@ about: 'Indie gems, top releases, hidden hits.<br>Short. Direct. Smart.<br>Use t
 (function(){
 if(IN_APP)return;
 var deferred=null;
-var ios=/iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
-var SHARE='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9H6a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10a1 1 0 0 0-1-1h-2"/><path d="M12 14V3"/><path d="M8.5 6.5 12 3l3.5 3.5"/></svg>';
-var PLUS='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg>';
+var apple=/iphone|ipad|ipod|macintosh/.test(navigator.userAgent.toLowerCase());
+var SHARE='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9H6a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10a1 1 0 0 0-1-1h-2"/><path d="M12 14V3"/><path d="M8.5 6.5 12 3l3.5 3.5"/></svg>';
+var PLUS='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="20" height="20" rx="3"/><path d="M12 8v8M8 12h8"/></svg>';
 function toast(){var d=document.createElement('div');
-d.innerHTML=ios?SHARE+'<span>\u2192</span>'+PLUS+'<span>Add to Home Screen</span>':'<span>browser menu</span><span>\u2192</span><span>Install app</span>';
-d.style.cssText="position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:8px;background:#0d0d13;border:1px solid var(--violet);color:#8a8a9c;font-family:'Space Mono',ui-monospace,monospace;font-size:13px;padding:10px 16px;letter-spacing:0.04em;white-space:nowrap";
+d.innerHTML=SHARE+'<span>\u2192</span>'+PLUS+'<span>Add to Home Screen</span>';
+d.style.cssText="position:fixed;left:50%;top:72px;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:8px;background:#0d0d13;border:1px solid var(--violet);color:#8a8a9c;font-family:'Space Mono',ui-monospace,monospace;font-size:15px;padding:14px 22px;letter-spacing:0.04em;white-space:nowrap";
 document.body.appendChild(d);setTimeout(function(){d.remove()},5000)}
 addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e});
 var b=document.getElementById('pwaBtn');
 if(b)b.onclick=function(e){e.preventDefault();
 if(deferred){var p=deferred;deferred=null;p.prompt()}
-else toast()};
+else if(apple)toast()};
 })();
