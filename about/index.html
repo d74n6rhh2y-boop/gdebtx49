@@ -169,5 +169,6 @@ jumpEl.addEventListener('touchstart',()=>{ jumpHold=true; clearTimeout(jumpT); }
 jumpEl.addEventListener('touchend',()=>{ jumpHold=false; jumpHide(); },{passive:true});
 }
 })();</script>
+<script>if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));</script>
 </body>
 </html>
