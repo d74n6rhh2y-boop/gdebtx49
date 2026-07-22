@@ -1,7 +1,7 @@
 /* hexplay service worker — instant repeat visits.
    images/fonts/css/js: cache-first (immutable by filename)
    games.json + pages:  network-first with cache fallback (fresh when online, instant when not) */
-const V = 'hx-v2';
+const V = 'hx-v3';
 const SHELL = ['/', '/styles.css', '/layout.js',
   '/fonts/unbounded-600.woff2', '/fonts/unbounded-800.woff2',
   '/fonts/space-mono-400.woff2', '/fonts/space-mono-700.woff2'];
@@ -24,8 +24,7 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return;
 
   const p = url.pathname;
-  const cacheFirst = p.startsWith('/img/') || p.startsWith('/fonts/') ||
-                     p === '/styles.css' || p === '/layout.js';
+  const cacheFirst = p.startsWith('/img/') || p.startsWith('/fonts/');
 
   if (cacheFirst) {
     e.respondWith(caches.open(V).then(async c => {
@@ -42,7 +41,7 @@ self.addEventListener('fetch', e => {
   if (req.mode === 'navigate' || p === '/games.json' || p === '/styles.css' || p === '/layout.js') {
     e.respondWith(caches.open(V).then(async c => {
       try {
-        const res = await fetch(req);
+        const res = await fetch(req, { cache: 'no-cache' });
         if (res.ok) c.put(req, res.clone());
         return res;
       } catch (err) {
