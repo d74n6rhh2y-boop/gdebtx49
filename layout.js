@@ -31,10 +31,10 @@ about: 'Indie gems, top releases, hidden hits.<br>Short. Direct. Smart.<br>Use t
   page.insertAdjacentHTML('afterbegin',
     '<header>' +
       '<a class="wordmark" href="/">' +
-        'hexplay<span style="color:var(--cyan)">_</span>' +
+        'hexplay' +
       '</a>' +
       (IN_APP ? '' :
-      '<a class="nav-btn" id="pwaBtn" href="#" style="margin-left:14px;margin-right:auto"><svg class="nav-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>app</a>') +
+      '<a class="nav-btn" id="pwaBtn" href="#" style="margin-left:14px;margin-right:auto"><svg class="nav-ic" style="color:var(--cyan)" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>app</a>') +
       '<nav class="nav">' +
         '<a href="/" class="nav-btn' + on('games') + '"><svg class="nav-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6" r="3"/><path d="M12 9v6"/><path d="M6 15h12a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Z"/></svg>games</a>' +
         '<a href="/about" class="nav-btn' + on('about') + '"><svg class="nav-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>about</a>' +
