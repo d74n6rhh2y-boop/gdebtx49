@@ -549,20 +549,21 @@ if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWor
 if(matchMedia('(display-mode: standalone)').matches||navigator.standalone)return;
 let deferred=null,btn=null;
 const ios=/iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
-const SHARE='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M8 9H6a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10a1 1 0 0 0-1-1h-2"/><path d="M12 14V3"/><path d="M8.5 6.5 12 3l3.5 3.5"/></svg>';
-const PLUS='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg>';
-function toast(h){const d=document.createElement('div');d.innerHTML=h;
-d.style.cssText="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:9999;background:#0d0d13;border:1px solid #1c1c28;color:#8a8a9c;font-family:'Space Mono',ui-monospace,monospace;font-size:13px;padding:10px 16px;letter-spacing:0.04em;white-space:nowrap";
+const IC='<svg class="nav-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>';
+const SHARE='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9H6a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10a1 1 0 0 0-1-1h-2"/><path d="M12 14V3"/><path d="M8.5 6.5 12 3l3.5 3.5"/></svg>';
+const PLUS='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg>';
+function toast(){const d=document.createElement('div');
+d.innerHTML=SHARE+'<span>\u2192</span>'+PLUS+'<span>Add to Home Screen</span>';
+d.style.cssText="position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:8px;background:#0d0d13;border:1px solid var(--violet);color:#8a8a9c;font-family:'Space Mono',ui-monospace,monospace;font-size:13px;padding:10px 16px;letter-spacing:0.04em;white-space:nowrap";
 document.body.appendChild(d);setTimeout(()=>d.remove(),5000)}
 function arm(){
-if(btn)return;const cur=document.querySelector('.wordmark span');if(!cur)return;
-btn=document.createElement('span');
-btn.textContent=' \u2193 app';
-btn.style.cssText='color:var(--cyan);cursor:pointer';
-btn.onclick=async e=>{e.preventDefault();e.stopPropagation();
+if(btn)return;const nav=document.querySelector('.nav');if(!nav)return;
+btn=document.createElement('a');
+btn.className='nav-btn';btn.href='#';btn.innerHTML=IC+'app';
+btn.onclick=async e=>{e.preventDefault();
 if(deferred){const p=deferred;deferred=null;p.prompt();await p.userChoice;btn.remove();btn=null}
-else toast('Safari: '+SHARE+' \u2192 '+PLUS+' Add to Home Screen')};
-cur.after(btn)}
+else toast()};
+nav.prepend(btn)}
 function ready(){document.readyState==='complete'?arm():addEventListener('load',arm,{once:true})}
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;ready()});
 if(ios)ready();
