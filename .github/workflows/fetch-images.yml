@@ -25,7 +25,7 @@ jobs:
         run: python fetch_images.py
 
       - name: Optimize images to WebP
-        run: python optimize_images.py
+        run: python optimize_images.py --fonts
 
       - name: Sync SEO list into index.html
         run: python update_seo.py
@@ -34,7 +34,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add games.json index.html sitemap.xml img
+          git add games.json index.html sitemap.xml img fonts
           if git diff --cached --quiet; then
             echo "No changes."
           else
